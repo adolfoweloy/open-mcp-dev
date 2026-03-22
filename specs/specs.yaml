@@ -1,0 +1,6 @@
+specs:
+  - id: root__initial_scope
+    domain: root
+    feature: initial_scope
+    description: Full-stack MCP chat client with OpenAI/Ollama support, MCP server management, OAuth2, ChatGPT Apps SDK iframe bridge, and localStorage conversation persistence
+    status: todo
