@@ -18,7 +18,7 @@ tasks:
     refs:
       - specs/root/initial_scope/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test project scaffold: verify package.json workspaces resolve correctly, config.example.yaml
@@ -27,7 +27,7 @@ tasks:
       timeout, env).
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Shared Types ─────────────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ tasks:
       All types must be importable from both server and client.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test shared types: compile shared/types.ts with tsc and assert no errors; verify
@@ -47,7 +47,7 @@ tasks:
       from the Vercel AI SDK.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Server: Config ───────────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ tasks:
     refs:
       - specs/root/initial_scope/design.md
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Test server/config.ts: valid config with all fields loads correctly; config missing
@@ -72,7 +72,7 @@ tasks:
       prompt per provider and undefined when not set.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: MCP Client Manager ───────────────────────────────────────────
 
@@ -95,7 +95,7 @@ tasks:
       - specs/root/initial_scope/design.md
       - specs/root/initial_scope/requirements.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test MCPClientManager: mock MCP server; connectToServer succeeds for stdio and http variants;
@@ -106,7 +106,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Server: Model Helpers ─────────────────────────────────────────────────
 
@@ -118,7 +118,7 @@ tasks:
     refs:
       - specs/root/initial_scope/design.md
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Create server/lib/ollama.ts exporting listOllamaModels(baseUrl: string): Promise<ModelInfo[]>.
@@ -127,7 +127,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test model helpers: createModel with openai provider returns model; createModel with ollama
@@ -136,7 +136,7 @@ tasks:
       throwing; listOllamaModels times out gracefully.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: Chat Route ───────────────────────────────────────────────────
 
@@ -155,7 +155,7 @@ tasks:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test chat route: POST /api/chat with valid body streams a response with correct headers
@@ -164,7 +164,7 @@ tasks:
       and stream terminates gracefully; missing model config returns 500 with error message.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: Models Route ─────────────────────────────────────────────────
 
@@ -178,7 +178,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test models route: returns OpenAI models when only openai is configured; returns Ollama
@@ -187,7 +187,7 @@ tasks:
       returns available models without crashing.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: MCP Server Management Routes ─────────────────────────────────
 
