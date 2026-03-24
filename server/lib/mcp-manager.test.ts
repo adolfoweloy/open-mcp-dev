@@ -7,6 +7,12 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { MCPClientManager } from "./mcp-manager.js";
+import type {
+  OAuthClientConfig,
+  OAuthTokenSet,
+  AuthLock,
+  PendingAuthState,
+} from "./mcp-manager.js";
 import type { McpServerConfig } from "../config.js";
 
 /** Creates a linked in-memory MCP server with the given tools, returns the client-side transport. */
@@ -46,6 +52,81 @@ async function createMockServer(
 }
 
 describe("MCPClientManager", () => {
+  describe("OAuth data structures", () => {
+    it("initializes oauthClients as an empty Map", () => {
+      const manager = new MCPClientManager();
+      const map = (manager as unknown as { oauthClients: Map<string, OAuthClientConfig> }).oauthClients;
+      assert.ok(map instanceof Map);
+      assert.equal(map.size, 0);
+    });
+
+    it("initializes tokenSets as an empty Map", () => {
+      const manager = new MCPClientManager();
+      const map = (manager as unknown as { tokenSets: Map<string, OAuthTokenSet> }).tokenSets;
+      assert.ok(map instanceof Map);
+      assert.equal(map.size, 0);
+    });
+
+    it("initializes authLocks as an empty Map", () => {
+      const manager = new MCPClientManager();
+      const map = (manager as unknown as { authLocks: Map<string, AuthLock> }).authLocks;
+      assert.ok(map instanceof Map);
+      assert.equal(map.size, 0);
+    });
+
+    it("initializes pendingStates as an empty Map", () => {
+      const manager = new MCPClientManager();
+      const map = (manager as unknown as { pendingStates: Map<string, PendingAuthState> }).pendingStates;
+      assert.ok(map instanceof Map);
+      assert.equal(map.size, 0);
+    });
+
+    it("each manager instance has independent map state", () => {
+      const m1 = new MCPClientManager();
+      const m2 = new MCPClientManager();
+      const map1 = (m1 as unknown as { oauthClients: Map<string, OAuthClientConfig> }).oauthClients;
+      const map2 = (m2 as unknown as { oauthClients: Map<string, OAuthClientConfig> }).oauthClients;
+      assert.notEqual(map1, map2);
+    });
+
+    it("OAuthClientConfig interface shape compiles correctly", () => {
+      // TypeScript compilation validates this at build time; runtime check confirms the shape
+      const config: OAuthClientConfig = {
+        clientId: "test-client",
+        authorizationEndpoint: "https://auth.example.com/authorize",
+        tokenEndpoint: "https://auth.example.com/token",
+      };
+      assert.equal(config.clientId, "test-client");
+    });
+
+    it("OAuthTokenSet interface shape compiles correctly", () => {
+      const tokenSet: OAuthTokenSet = {
+        accessToken: "access-token-value",
+        refreshToken: "refresh-token-value",
+        expiresAt: Date.now() + 3600_000,
+      };
+      assert.ok(tokenSet.accessToken);
+    });
+
+    it("AuthLock interface shape compiles correctly", () => {
+      const lock: AuthLock = {
+        inProgress: false,
+        queue: [{ resolve: () => {}, reject: () => {} }],
+      };
+      assert.equal(lock.inProgress, false);
+      assert.equal(lock.queue.length, 1);
+    });
+
+    it("PendingAuthState interface shape compiles correctly", () => {
+      const state: PendingAuthState = {
+        serverId: "my-server",
+        codeVerifier: "some-verifier-string",
+        expiresAt: Date.now() + 600_000,
+      };
+      assert.equal(state.serverId, "my-server");
+    });
+  });
+
   describe("connectWithTransport / isConnected / disconnectServer", () => {
     it("connects and reports isConnected=true", async () => {
       const manager = new MCPClientManager();
