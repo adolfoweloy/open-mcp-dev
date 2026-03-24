@@ -1,0 +1,94 @@
+import { useEffect, useRef, useState } from "react";
+import { fetchServers, connectServer, disconnectServer } from "../lib/api";
+import type { McpServerStatus } from "../lib/types";
+
+const POLL_INTERVAL_MS = 5000;
+
+interface Props {
+  selectedServers: string[];
+  onToggle: (serverId: string) => void;
+}
+
+export function ServerSidebar({ selectedServers, onToggle }: Props) {
+  const [servers, setServers] = useState<McpServerStatus[]>([]);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function loadServers() {
+    try {
+      const list = await fetchServers();
+      setServers(list);
+    } catch (err) {
+      console.error("[ServerSidebar] Failed to fetch servers", err);
+    }
+  }
+
+  useEffect(() => {
+    void loadServers();
+    intervalRef.current = setInterval(() => void loadServers(), POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  async function handleConnect(serverId: string) {
+    try {
+      await connectServer(serverId);
+      await loadServers();
+    } catch (err) {
+      console.error("[ServerSidebar] Failed to connect", serverId, err);
+    }
+  }
+
+  async function handleDisconnect(serverId: string) {
+    try {
+      await disconnectServer(serverId);
+      await loadServers();
+    } catch (err) {
+      console.error("[ServerSidebar] Failed to disconnect", serverId, err);
+    }
+  }
+
+  return (
+    <div>
+      <h3>MCP Servers</h3>
+      <ul>
+        {servers.map((server) => (
+          <li key={server.id}>
+            <label>
+              <input
+                type="checkbox"
+                checked={selectedServers.includes(server.id)}
+                onChange={() => onToggle(server.id)}
+              />
+              <span
+                style={{ color: server.connected ? "green" : "red" }}
+                aria-label={server.connected ? "connected" : "disconnected"}
+              >
+                {server.id}
+              </span>
+            </label>
+            {server.requiresOAuth && !server.connected && (
+              <a
+                href={`/api/oauth/start?server=${encodeURIComponent(server.id)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Connect
+              </a>
+            )}
+            {!server.requiresOAuth && !server.connected && (
+              <button onClick={() => void handleConnect(server.id)}>
+                Reconnect
+              </button>
+            )}
+            {server.connected && (
+              <button onClick={() => void handleDisconnect(server.id)}>
+                Disconnect
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
