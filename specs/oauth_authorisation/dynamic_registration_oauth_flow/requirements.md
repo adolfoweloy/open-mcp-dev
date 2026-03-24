@@ -25,8 +25,8 @@
 
 ### Authorization Flow
 
-- Generate a PKCE pair: `code_verifier` (random, ≥ 43 chars) and `code_challenge` (SHA-256, Base64URL-encoded)
-- Generate a `state` parameter (random, ≥ 16 bytes, Base64URL-encoded) for CSRF protection
+- Generate a PKCE pair: `code_verifier` (cryptographically random, ≥ 43 chars, Base64URL-encoded) and `code_challenge` (SHA-256 of verifier, Base64URL-encoded)
+- Generate a `state` parameter (cryptographically random, ≥ 16 bytes, Base64URL-encoded) for CSRF protection; use `crypto.randomBytes` — not `Math.random`
 - Store `{ serverId, codeVerifier, expiresAt: now + 10 min }` in-memory keyed by `state`
 - Construct the authorization URL with: `response_type=code`, `client_id`, `redirect_uri`, `scope` (if required), `state`, `code_challenge`, `code_challenge_method=S256`
 - **Manual trigger** (user clicks Connect in UI): open popup directly to the authorization URL
