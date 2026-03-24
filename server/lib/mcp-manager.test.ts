@@ -1,4 +1,4 @@
-import { describe, it, before, after } from "node:test";
+import { describe, it, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -243,6 +243,226 @@ describe("MCPClientManager", () => {
       assert.equal(manager.requiresOAuth("stdio-srv", configs), false);
       assert.equal(manager.requiresOAuth("http-no-oauth", configs), false);
       assert.equal(manager.requiresOAuth("http-oauth", configs), true);
+    });
+  });
+
+  describe("prepareOAuthFlow", () => {
+    const SERVER_URL = "https://mcp.example.com/mcp";
+    const PORT = 3000;
+    const METADATA_URL = "https://auth.example.com/.well-known/oauth-resource";
+    const RFC8414_URL = "https://mcp.example.com/.well-known/oauth-authorization-server";
+    const REG_ENDPOINT = "https://auth.example.com/register";
+    const AUTH_ENDPOINT = "https://auth.example.com/authorize";
+    const TOKEN_ENDPOINT = "https://auth.example.com/token";
+    const CLIENT_ID = "test-client-id";
+
+    const baseMetadata = {
+      authorization_endpoint: AUTH_ENDPOINT,
+      token_endpoint: TOKEN_ENDPOINT,
+      registration_endpoint: REG_ENDPOINT,
+    };
+
+    const makeJsonResponse = (body: unknown, status = 200): Response =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    /** Response with WWW-Authenticate pointing to METADATA_URL (MCP spec discovery). */
+    const makeMcpDiscoveryResponse = (): Response =>
+      new Response("", {
+        status: 200,
+        headers: {
+          "WWW-Authenticate": `Bearer resource_metadata="${METADATA_URL}"`,
+        },
+      });
+
+    type FetchMock = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+    let originalFetch: typeof globalThis.fetch;
+    before(() => { originalFetch = globalThis.fetch; });
+    afterEach(() => { globalThis.fetch = originalFetch; });
+
+    /** Sets up the standard happy-path fetch mock (MCP discovery → metadata → registration). */
+    const setHappyPathFetch = (override?: Partial<Record<string, FetchMock>>) => {
+      const handlers: Record<string, FetchMock> = {
+        [SERVER_URL]: async () => makeMcpDiscoveryResponse(),
+        [METADATA_URL]: async () => makeJsonResponse(baseMetadata),
+        [REG_ENDPOINT]: async () => makeJsonResponse({ client_id: CLIENT_ID }),
+        ...override,
+      };
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const urlStr = typeof input === "string" ? input
+          : input instanceof URL ? input.href
+          : (input as Request).url;
+        const handler = handlers[urlStr];
+        if (handler) return handler(input, init);
+        throw new Error(`Unexpected fetch to: ${urlStr}`);
+      };
+    };
+
+    it("(a) happy path: returns valid authorization URL with expected params", async () => {
+      setHappyPathFetch();
+      const manager = new MCPClientManager();
+      const authUrl = await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+      const parsed = new URL(authUrl);
+
+      assert.equal(parsed.searchParams.get("client_id"), CLIENT_ID);
+      assert.equal(parsed.searchParams.get("response_type"), "code");
+      assert.equal(parsed.searchParams.get("redirect_uri"), `http://localhost:${PORT}/oauth/callback`);
+      assert.equal(parsed.searchParams.get("code_challenge_method"), "S256");
+      assert.ok(parsed.searchParams.get("code_challenge"), "code_challenge should be present");
+      assert.ok(parsed.searchParams.get("state"), "state should be present");
+    });
+
+    it("(b) MCP discovery fails → RFC 8414 fallback used", async () => {
+      const calls: string[] = [];
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const urlStr = typeof input === "string" ? input
+          : input instanceof URL ? input.href
+          : (input as Request).url;
+        calls.push(urlStr);
+
+        if (urlStr === SERVER_URL) return new Response("", { status: 200 }); // no WWW-Authenticate
+        if (urlStr === RFC8414_URL) return makeJsonResponse(baseMetadata);
+        if (urlStr === REG_ENDPOINT) return makeJsonResponse({ client_id: CLIENT_ID });
+        throw new Error(`Unexpected fetch: ${urlStr}`);
+      };
+
+      const manager = new MCPClientManager();
+      const authUrl = await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+
+      assert.ok(calls.includes(RFC8414_URL), "RFC 8414 fallback URL must be fetched");
+      const parsed = new URL(authUrl);
+      assert.equal(parsed.searchParams.get("client_id"), CLIENT_ID);
+    });
+
+    it("(c) both discovery methods fail → throws OAuthDiscoveryError", async () => {
+      globalThis.fetch = async (): Promise<Response> =>
+        new Response("not-json", { status: 200 });
+
+      const manager = new MCPClientManager();
+      await assert.rejects(
+        () => manager.prepareOAuthFlow("srv", SERVER_URL, PORT),
+        (err: Error) => {
+          assert.equal(err.name, "OAuthDiscoveryError");
+          return true;
+        }
+      );
+    });
+
+    it("(d) registration non-2xx → throws OAuthRegistrationError", async () => {
+      setHappyPathFetch({
+        [REG_ENDPOINT]: async () => new Response(JSON.stringify({ error: "bad" }), { status: 400 }),
+      });
+
+      const manager = new MCPClientManager();
+      await assert.rejects(
+        () => manager.prepareOAuthFlow("srv", SERVER_URL, PORT),
+        (err: Error) => {
+          assert.equal(err.name, "OAuthRegistrationError");
+          return true;
+        }
+      );
+    });
+
+    it("(e) second call for same serverId skips registration", async () => {
+      let registrationCalls = 0;
+      setHappyPathFetch({
+        [REG_ENDPOINT]: async () => {
+          registrationCalls++;
+          return makeJsonResponse({ client_id: CLIENT_ID });
+        },
+      });
+
+      const manager = new MCPClientManager();
+      await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+      await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+
+      assert.equal(registrationCalls, 1, "registration should happen only once per serverId");
+      const oauthClients = (manager as unknown as { oauthClients: Map<string, OAuthClientConfig> }).oauthClients;
+      assert.equal(oauthClients.size, 1);
+    });
+
+    it("(f) discovery fetch throws (simulating timeout) → falls through to RFC 8414", async () => {
+      const calls: string[] = [];
+      globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const urlStr = typeof input === "string" ? input
+          : input instanceof URL ? input.href
+          : (input as Request).url;
+        calls.push(urlStr);
+
+        if (urlStr === SERVER_URL) {
+          const err = Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
+          throw err;
+        }
+        if (urlStr === RFC8414_URL) return makeJsonResponse(baseMetadata);
+        if (urlStr === REG_ENDPOINT) return makeJsonResponse({ client_id: CLIENT_ID });
+        throw new Error(`Unexpected fetch: ${urlStr}`);
+      };
+
+      const manager = new MCPClientManager();
+      const authUrl = await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+
+      assert.ok(calls.includes(RFC8414_URL), "RFC 8414 fallback should be used after discovery timeout");
+      assert.equal(new URL(authUrl).searchParams.get("client_id"), CLIENT_ID);
+    });
+
+    it("(g) registration fetch throws (simulating timeout) → throws OAuthRegistrationError", async () => {
+      setHappyPathFetch({
+        [REG_ENDPOINT]: async () => {
+          const err = Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
+          throw err;
+        },
+      });
+
+      const manager = new MCPClientManager();
+      await assert.rejects(
+        () => manager.prepareOAuthFlow("srv", SERVER_URL, PORT),
+        (err: Error) => {
+          assert.equal(err.name, "OAuthRegistrationError");
+          return true;
+        }
+      );
+    });
+
+    it("(h) pendingStates entry has expiresAt within ±1 s of Date.now() + 10 min", async () => {
+      setHappyPathFetch();
+      const manager = new MCPClientManager();
+      const before = Date.now();
+      await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+      const after = Date.now();
+
+      const pendingStates = (manager as unknown as { pendingStates: Map<string, PendingAuthState> }).pendingStates;
+      assert.equal(pendingStates.size, 1);
+
+      const entry = pendingStates.values().next().value!;
+      assert.ok(entry.expiresAt >= before + 600_000, "expiresAt should be at least 10 min from before");
+      assert.ok(entry.expiresAt <= after + 600_000 + 1000, "expiresAt should be at most 10 min + 1s from after");
+    });
+
+    it("(i) code_verifier is ≥43 chars and Base64URL-encoded", async () => {
+      setHappyPathFetch();
+      const manager = new MCPClientManager();
+      await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+
+      const pendingStates = (manager as unknown as { pendingStates: Map<string, PendingAuthState> }).pendingStates;
+      const entry = pendingStates.values().next().value!;
+
+      assert.ok(entry.codeVerifier.length >= 43, `code_verifier length ${entry.codeVerifier.length} should be ≥43`);
+      assert.match(entry.codeVerifier, /^[A-Za-z0-9_-]+$/, "code_verifier must be Base64URL characters only (no padding)");
+    });
+
+    it("(j) state is 16-byte Base64URL (22 chars)", async () => {
+      setHappyPathFetch();
+      const manager = new MCPClientManager();
+      const authUrl = await manager.prepareOAuthFlow("srv", SERVER_URL, PORT);
+
+      const state = new URL(authUrl).searchParams.get("state");
+      assert.ok(state, "state param must be present in authUrl");
+      // 16 bytes → base64url → 22 chars (no padding)
+      assert.equal(state.length, 22, `state should be 22 chars (16-byte Base64URL), got ${state.length}`);
+      assert.match(state, /^[A-Za-z0-9_-]+$/, "state must be Base64URL characters only");
     });
   });
 
