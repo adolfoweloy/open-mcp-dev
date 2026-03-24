@@ -3,4 +3,10 @@ specs:
     domain: root
     feature: initial_scope
     description: Full-stack MCP chat client with OpenAI/Ollama support, MCP server management, OAuth2, ChatGPT Apps SDK iframe bridge, and localStorage conversation persistence
+    status: done
+
+  - id: oauth_authorisation__dynamic_registration_oauth_flow
+    domain: oauth_authorisation
+    feature: dynamic_registration_oauth_flow
+    description: RFC 7591 dynamic client registration + OAuth2 Authorization Code + PKCE flow for HTTP MCP servers; in-memory tokens, per-server auth lock, banner-based auto-trigger, server-side token exchange
     status: todo

@@ -4,7 +4,7 @@ overview: >
   MCPClientManager for server lifecycle, OAuth2 PKCE flow, HTML resource proxy, and a React 19
   frontend with conversation persistence, model selection, server sidebar, collapsible tool calls,
   and a ChatGPT Apps SDK postMessage bridge inside iframe MCP resources.
-status: todo
+status: done
 tasks:
 
   # ── Project Scaffolding ──────────────────────────────────────────────────
@@ -202,7 +202,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test MCP management routes: GET /api/mcp/servers returns correct statuses; POST connect
@@ -210,7 +210,7 @@ tasks:
       server and returns 404 for unknown; connection error during POST returns 500 with message.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: MCP Resource Proxy ────────────────────────────────────────────
 
@@ -227,7 +227,7 @@ tasks:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test MCP proxy: valid HTML resource proxied with correct Content-Type; missing uri param
@@ -235,7 +235,7 @@ tasks:
       server returns 401 to client.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: OAuth Route ───────────────────────────────────────────────────
 
@@ -261,7 +261,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test OAuth routes: /api/oauth/start with valid oauth server redirects to auth URL; unknown
@@ -270,7 +270,7 @@ tasks:
       connected and token is accessible via getOAuthToken.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Server: Entry Point ───────────────────────────────────────────────────
 
@@ -290,7 +290,7 @@ tasks:
       - specs/root/initial_scope/design.md
       - specs/root/initial_scope/requirements.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test server startup: server starts without config.yaml present and logs error + exits;
@@ -299,7 +299,7 @@ tasks:
       still starts; all API routes are mounted and respond.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: Build Config ──────────────────────────────────────────────────
 
@@ -315,7 +315,7 @@ tasks:
     refs:
       - specs/root/initial_scope/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test client build config: vite build succeeds without errors; proxy config correctly
@@ -323,7 +323,7 @@ tasks:
       tailwind CSS classes are included in output.
     refs:
       - specs/architecture.md
-    status: todo
+    status: done
 
   # ── Client: Lib — Types, Storage, API ────────────────────────────────────
 
@@ -339,7 +339,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test storage helpers: loadConversations returns [] when localStorage is empty; saves and
@@ -348,7 +348,7 @@ tasks:
       roundtrip correctly; null activeId clears the key.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Create client/src/lib/api.ts with typed fetch helpers:
@@ -359,7 +359,7 @@ tasks:
       All helpers throw on non-2xx responses with a message containing status and body text.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test API helpers: each helper sends correct method/path/body; non-2xx response causes
@@ -367,7 +367,7 @@ tasks:
       disconnectServer send correct JSON body.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Client: ModelSelector ─────────────────────────────────────────────────
 
@@ -382,7 +382,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test ModelSelector: renders options from fetched model list; default selects first model
@@ -390,7 +390,7 @@ tasks:
       fetch error renders empty select without crashing; groups options by provider label.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: ServerSidebar ─────────────────────────────────────────────────
 
@@ -408,7 +408,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test ServerSidebar: renders server list from API; OAuth server shows Connect button
@@ -417,7 +417,7 @@ tasks:
       poll interval re-fetches server list; fetch error renders gracefully.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: ToolCallResult ────────────────────────────────────────────────
 
@@ -433,7 +433,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test ToolCallResult: renders collapsed by default showing tool name; clicking header
@@ -441,7 +441,7 @@ tasks:
       when isError=true; namespaced tool name displayed correctly.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: McpResourceFrame ──────────────────────────────────────────────
 
@@ -467,7 +467,7 @@ tasks:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test McpResourceFrame: iframe src set correctly with encoded URI; ui/ready sent on
@@ -478,7 +478,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Client: MessageBubble & MessageList ──────────────────────────────────
 
@@ -496,7 +496,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test MessageBubble: user message right-aligned; assistant message left-aligned; text
@@ -505,7 +505,7 @@ tasks:
       loading indicator; error message styled with error class.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Create client/src/components/MessageList.tsx:
@@ -515,7 +515,7 @@ tasks:
       - Shows a "No messages yet" empty state when list is empty
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test MessageList: renders correct number of MessageBubble children; empty state shown
@@ -523,7 +523,7 @@ tasks:
       scroll to bottom.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: Chat ──────────────────────────────────────────────────────────
 
@@ -542,7 +542,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test Chat: submitting message calls POST /api/chat; messages streamed to UI; Enter
@@ -551,7 +551,7 @@ tasks:
       in request body.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   # ── Client: App & Conversation Management ────────────────────────────────
 
@@ -573,7 +573,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test App: loads conversations from localStorage on mount; new conversation created and
@@ -582,7 +582,7 @@ tasks:
       model selection passed to Chat.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Create client/src/main.tsx bootstrapping React 19 app:
@@ -592,14 +592,14 @@ tasks:
       <div id="root"> + script tag for main.tsx.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   - task: >
       Test main entry: React app mounts into #root without errors; StrictMode is applied;
       index.html contains correct meta tags and script reference.
     refs:
       - specs/root/initial_scope/design.md
-    status: todo
+    status: done
 
   # ── Non-Functional / Cross-Cutting ────────────────────────────────────────
 
@@ -611,7 +611,7 @@ tasks:
     refs:
       - specs/root/initial_scope/requirements.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Verify observability requirements: server logs MCP connection events (connect/disconnect/
@@ -619,4 +619,4 @@ tasks:
       startup failures (config missing) exit with a clear error message.
     refs:
       - specs/root/initial_scope/requirements.md
-    status: todo
+    status: done
