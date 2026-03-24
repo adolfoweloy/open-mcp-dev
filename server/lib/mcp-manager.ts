@@ -123,6 +123,10 @@ export class MCPClientManager {
     }));
   }
 
+  getClient(id: string): Client | undefined {
+    return this.clients.get(id);
+  }
+
   async getToolsForAiSdk(serverIds?: string[]): Promise<ToolSet> {
     const ids = serverIds ?? Array.from(this.clients.keys());
     const toolSet: ToolSet = {};
