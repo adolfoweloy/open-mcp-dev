@@ -29,8 +29,13 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 
 - No user auth — single-user local app
 - OAuth2 Authorization Code + PKCE for MCP servers that require it
-- OAuth tokens stored in-memory on the server; lost on restart
+- RFC 7591 dynamic client registration: client registers itself at runtime; no pre-configured client credentials
+- Public client only (no `client_secret`); PKCE with S256 is the primary security control
+- OAuth tokens and client credentials stored in-memory on the server; lost on restart
 - API keys (OpenAI) and OAuth tokens never sent to the frontend
+- Per-server auth lock in `MCPClientManager` deduplicates concurrent 401s; all callers queue behind one active flow
+- Auto-triggered OAuth flows (401 during tool call) emit an `auth_required` data stream event; frontend shows a banner — no direct `window.open()` without a user gesture
+- `state` parameter validated server-side in `/oauth/callback` for CSRF protection; `postMessage` origin validated strictly to `http://localhost:{port}`
 
 ## Data Storage
 
