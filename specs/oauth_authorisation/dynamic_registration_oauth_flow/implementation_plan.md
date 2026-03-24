@@ -154,7 +154,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test refactored GET /oauth/callback: (a) missing state → 400; (b) unknown state → 400; (c)
@@ -165,7 +165,7 @@ tasks:
       deleted after callback (both success and failure paths).
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Add POST /api/mcp/:serverId/connect route to server/routes/mcp.ts (or a new
@@ -181,7 +181,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Test POST /api/mcp/:serverId/connect: (a) unknown serverId → 404; (b) already connected
@@ -192,7 +192,7 @@ tasks:
       → 500 with error message.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Add GET /api/mcp/:serverId/auth/url route to server/routes/mcp.ts (or oauth-connect.ts).
@@ -204,7 +204,7 @@ tasks:
       session) and will create a fresh PKCE/state pair each time called.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test GET /api/mcp/:serverId/auth/url: (a) unknown serverId → 404; (b) non-OAuth server
@@ -212,7 +212,7 @@ tasks:
       (d) prepareOAuthFlow failure → 500 with error message.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Wire callWithAuth into tool execution and emit auth_required data stream events in the
@@ -229,7 +229,7 @@ tasks:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test auth_required event in chat route: (a) when a tool call triggers callWithAuth which
@@ -238,7 +238,7 @@ tasks:
       normally; (c) emitEvent is not called for non-OAuth tool calls.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Add startOAuthConnect(serverId: string): Promise<{ status: string; authUrl?: string }> to
@@ -248,7 +248,7 @@ tasks:
       /api/mcp/{serverId}/auth/url.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test startOAuthConnect and fetchOAuthAuthUrl in client/src/lib/api.test.ts: (a)
@@ -257,7 +257,7 @@ tasks:
       fetchOAuthAuthUrl calls GET /api/mcp/{serverId}/auth/url; (e) returns { authUrl } on 200.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Create client/src/components/OAuthBanner.tsx. Props: serverId: string, onDismiss: () =>
@@ -273,7 +273,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test OAuthBanner component: (a) renders serverId in banner text; (b) "Authorize" button
@@ -283,7 +283,7 @@ tasks:
       with wrong serverId does NOT call onDismiss; (g) event listener is removed on unmount.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Update client/src/components/ServerSidebar.tsx to use the popup OAuth flow. Replace the
@@ -297,7 +297,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test updated ServerSidebar: (a) OAuth server with requiresOAuth=true and connected=false

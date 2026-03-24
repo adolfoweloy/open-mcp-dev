@@ -54,6 +54,130 @@ describe("ServerSidebar", () => {
     });
   });
 
+  it("clicking Connect calls startOAuthConnect with serverId", async () => {
+    mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
+    mockStartOAuthConnect.mockResolvedValue({ status: "connected" });
+
+    render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    await waitFor(() => {
+      expect(mockStartOAuthConnect).toHaveBeenCalledWith("oauth-srv");
+    });
+  });
+
+  it("on auth_required response, opens popup via window.open with authUrl", async () => {
+    mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
+    mockStartOAuthConnect.mockResolvedValue({
+      status: "auth_required",
+      authUrl: "https://auth.example.com/authorize?state=abc",
+    });
+    const mockOpen = vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith(
+        "https://auth.example.com/authorize?state=abc",
+        "_blank",
+        "width=600,height=700"
+      );
+    });
+
+    mockOpen.mockRestore();
+  });
+
+  it("postMessage { type: 'oauth_complete', serverId } from correct origin triggers loadServers", async () => {
+    mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
+    mockStartOAuthConnect.mockResolvedValue({
+      status: "auth_required",
+      authUrl: "https://auth.example.com/authorize",
+    });
+    vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    // Wait for popup to be opened (listener registered)
+    await waitFor(() => {
+      expect(mockStartOAuthConnect).toHaveBeenCalled();
+    });
+    // Let the async handler settle
+    await act(async () => { await Promise.resolve(); });
+
+    const callsBefore = mockFetchServers.mock.calls.length;
+
+    // Simulate postMessage from the correct origin
+    const origin = `${window.location.protocol}//${window.location.host}`;
+    await act(async () => {
+      const event = new MessageEvent("message", {
+        data: { type: "oauth_complete", serverId: "oauth-srv" },
+        origin,
+      });
+      window.dispatchEvent(event);
+      await Promise.resolve();
+    });
+
+    expect(mockFetchServers.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("on direct 'connected' response, calls loadServers without window.open", async () => {
+    mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
+    mockStartOAuthConnect.mockResolvedValue({ status: "connected" });
+    const mockOpen = vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Connect" }));
+    const callsBefore = mockFetchServers.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    await waitFor(() => {
+      expect(mockFetchServers.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+    expect(mockOpen).not.toHaveBeenCalled();
+
+    mockOpen.mockRestore();
+  });
+
+  it("postMessage from wrong origin does not trigger loadServers", async () => {
+    mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
+    mockStartOAuthConnect.mockResolvedValue({
+      status: "auth_required",
+      authUrl: "https://auth.example.com/authorize",
+    });
+    vi.spyOn(window, "open").mockReturnValue(null);
+
+    render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
+
+    await waitFor(() => screen.getByRole("button", { name: "Connect" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    await act(async () => { await Promise.resolve(); });
+
+    const callsBefore = mockFetchServers.mock.calls.length;
+
+    await act(async () => {
+      const event = new MessageEvent("message", {
+        data: { type: "oauth_complete", serverId: "oauth-srv" },
+        origin: "https://evil.example.com",
+      });
+      window.dispatchEvent(event);
+      await Promise.resolve();
+    });
+
+    // fetchServers should not be called again from the message handler
+    expect(mockFetchServers.mock.calls.length).toBe(callsBefore);
+  });
+
   it("non-oauth disconnected server shows Reconnect button", async () => {
     mockFetchServers.mockResolvedValue([disconnectedServer("plain-srv")]);
 
