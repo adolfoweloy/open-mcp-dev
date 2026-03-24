@@ -37,3 +37,23 @@ export async function disconnectServer(serverId: string): Promise<void> {
   });
   await checkResponse(res);
 }
+
+export async function startOAuthConnect(
+  serverId: string
+): Promise<{ status: string; authUrl?: string }> {
+  const res = await fetch(`/api/mcp/${encodeURIComponent(serverId)}/connect`, {
+    method: "POST",
+  });
+  await checkResponse(res);
+  return res.json() as Promise<{ status: string; authUrl?: string }>;
+}
+
+export async function fetchOAuthAuthUrl(
+  serverId: string
+): Promise<{ authUrl: string }> {
+  const res = await fetch(
+    `/api/mcp/${encodeURIComponent(serverId)}/auth/url`
+  );
+  await checkResponse(res);
+  return res.json() as Promise<{ authUrl: string }>;
+}
