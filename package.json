@@ -16,7 +16,12 @@
     "typecheck": "npm run typecheck --workspace=server && npm run typecheck --workspace=client"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jsdom": "^28.0.1",
     "js-yaml": "^4.1.0",
+    "jsdom": "^27.0.1",
     "typescript": "^5.7.3"
   }
 }
