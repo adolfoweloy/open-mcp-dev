@@ -7,12 +7,14 @@ vi.mock("../lib/api", () => ({
   fetchServers: vi.fn(),
   connectServer: vi.fn(),
   disconnectServer: vi.fn(),
+  startOAuthConnect: vi.fn(),
 }));
 
-import { fetchServers, connectServer, disconnectServer } from "../lib/api";
+import { fetchServers, connectServer, disconnectServer, startOAuthConnect } from "../lib/api";
 const mockFetchServers = vi.mocked(fetchServers);
 const mockConnect = vi.mocked(connectServer);
 const mockDisconnect = vi.mocked(disconnectServer);
+const mockStartOAuthConnect = vi.mocked(startOAuthConnect);
 
 function connected(id: string, requiresOAuth = false): McpServerStatus {
   return { id, connected: true, requiresOAuth };
@@ -40,17 +42,15 @@ describe("ServerSidebar", () => {
     });
   });
 
-  it("OAuth disconnected server shows Connect link to /api/oauth/start", async () => {
+  it("OAuth disconnected server shows Connect button (not a link)", async () => {
     mockFetchServers.mockResolvedValue([disconnectedServer("oauth-srv", true)]);
 
     render(<ServerSidebar selectedServers={[]} onToggle={() => {}} />);
 
     await waitFor(() => {
-      const link = screen.getByRole("link", { name: "Connect" });
-      expect(link).toHaveAttribute(
-        "href",
-        "/api/oauth/start?server=oauth-srv"
-      );
+      const btn = screen.getByRole("button", { name: "Connect" });
+      expect(btn).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Connect" })).toBeNull();
     });
   });
 

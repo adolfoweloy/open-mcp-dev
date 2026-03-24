@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchServers, connectServer, disconnectServer } from "../lib/api";
+import { fetchServers, connectServer, disconnectServer, startOAuthConnect } from "../lib/api";
 import type { McpServerStatus } from "../lib/types";
 
 const POLL_INTERVAL_MS = 5000;
@@ -29,6 +29,32 @@ export function ServerSidebar({ selectedServers, onToggle }: Props) {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  async function handleOAuthConnect(serverId: string) {
+    try {
+      const result = await startOAuthConnect(serverId);
+      if (result.status === "auth_required" && result.authUrl) {
+        const popup = window.open(result.authUrl, "_blank", "width=600,height=700");
+        const origin = `${window.location.protocol}//${window.location.host}`;
+        function messageHandler(event: MessageEvent) {
+          if (event.origin !== origin) return;
+          if (
+            event.data?.type === "oauth_complete" &&
+            event.data?.serverId === serverId
+          ) {
+            window.removeEventListener("message", messageHandler);
+            popup?.close();
+            void loadServers();
+          }
+        }
+        window.addEventListener("message", messageHandler);
+      } else if (result.status === "connected") {
+        await loadServers();
+      }
+    } catch (err) {
+      console.error("[ServerSidebar] OAuth connect failed", serverId, err);
+    }
+  }
 
   async function handleConnect(serverId: string) {
     try {
@@ -68,13 +94,9 @@ export function ServerSidebar({ selectedServers, onToggle }: Props) {
               </span>
             </label>
             {server.requiresOAuth && !server.connected && (
-              <a
-                href={`/api/oauth/start?server=${encodeURIComponent(server.id)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <button onClick={() => void handleOAuthConnect(server.id)}>
                 Connect
-              </a>
+              </button>
             )}
             {!server.requiresOAuth && !server.connected && (
               <button onClick={() => void handleConnect(server.id)}>
