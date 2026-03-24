@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchModels, fetchServers, connectServer, disconnectServer } from "./api";
+import {
+  fetchModels,
+  fetchServers,
+  connectServer,
+  disconnectServer,
+  startOAuthConnect,
+  fetchOAuthAuthUrl,
+} from "./api";
 import type { ModelInfo, McpServerStatus } from "./types";
 
 // We mock the global fetch
@@ -101,5 +108,87 @@ describe("disconnectServer", () => {
   it("throws on non-2xx response", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(500, "error"));
     await expect(disconnectServer("srv")).rejects.toThrow("HTTP 500");
+  });
+});
+
+describe("startOAuthConnect", () => {
+  it("sends POST /api/mcp/{serverId}/connect with correct path", async () => {
+    mockFetch.mockResolvedValueOnce(
+      makeResponse(200, { status: "connected" })
+    );
+
+    await startOAuthConnect("my-server");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/mcp/my-server/connect",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("returns { status: 'auth_required', authUrl } on 202", async () => {
+    const payload = {
+      status: "auth_required",
+      authUrl: "https://auth.example.com/authorize?foo=bar",
+    };
+    mockFetch.mockResolvedValueOnce(makeResponse(202, payload));
+
+    const result = await startOAuthConnect("srv");
+
+    expect(result).toEqual(payload);
+  });
+
+  it("encodes special characters in serverId", async () => {
+    mockFetch.mockResolvedValueOnce(
+      makeResponse(200, { status: "connected" })
+    );
+
+    await startOAuthConnect("my server/x");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/mcp/my%20server%2Fx/connect",
+      expect.anything()
+    );
+  });
+
+  it("throws on non-2xx response", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(404, "Not Found"));
+    await expect(startOAuthConnect("unknown")).rejects.toThrow("HTTP 404");
+  });
+});
+
+describe("fetchOAuthAuthUrl", () => {
+  it("sends GET /api/mcp/{serverId}/auth/url", async () => {
+    const payload = { authUrl: "https://auth.example.com/authorize?baz=1" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, payload));
+
+    await fetchOAuthAuthUrl("my-server");
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/mcp/my-server/auth/url");
+  });
+
+  it("returns { authUrl } on 200", async () => {
+    const payload = { authUrl: "https://auth.example.com/authorize?baz=1" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, payload));
+
+    const result = await fetchOAuthAuthUrl("my-server");
+
+    expect(result).toEqual(payload);
+  });
+
+  it("encodes special characters in serverId", async () => {
+    mockFetch.mockResolvedValueOnce(
+      makeResponse(200, { authUrl: "https://example.com" })
+    );
+
+    await fetchOAuthAuthUrl("my server/x");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/mcp/my%20server%2Fx/auth/url"
+    );
+  });
+
+  it("throws on non-2xx response", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(500, "error"));
+    await expect(fetchOAuthAuthUrl("srv")).rejects.toThrow("HTTP 500");
   });
 });
