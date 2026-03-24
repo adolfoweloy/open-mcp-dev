@@ -5,7 +5,7 @@ overview: >
   HTML postMessage response; adds POST /api/mcp/:serverId/connect and GET /api/mcp/:serverId/auth/url
   routes; wires auth_required data stream event into the chat route; and adds OAuthBanner +
   postMessage listener on the frontend.
-status: todo
+status: done
 tasks:
   - task: >
       Add OAuth data structures and in-memory maps to MCPClientManager in
@@ -350,7 +350,7 @@ tasks:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
       - specs/architecture.md
-    status: todo
+    status: done
 
   - task: >
       Test cleanup for removed legacy OAuth code: (a) delete all tests in
@@ -364,4 +364,4 @@ tasks:
       (e) verify no remaining test imports reference the removed exports.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
