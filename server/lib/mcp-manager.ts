@@ -1,3 +1,4 @@
+import { randomBytes, createHash } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -7,6 +8,20 @@ import type { ToolSet } from "ai";
 import { jsonSchema } from "ai";
 import type { McpServerConfig } from "../config.js";
 import type { McpServerStatus } from "../../shared/types.js";
+
+export class OAuthDiscoveryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OAuthDiscoveryError";
+  }
+}
+
+export class OAuthRegistrationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OAuthRegistrationError";
+  }
+}
 
 export interface OAuthClientConfig {
   clientId: string;
@@ -119,6 +134,168 @@ export class MCPClientManager {
 
     console.log(`[mcp-manager] Connected to "${id}"`);
     this.clients.set(id, client);
+  }
+
+  async prepareOAuthFlow(
+    serverId: string,
+    serverUrl: string,
+    port: number
+  ): Promise<string> {
+    const TIMEOUT_MS = 5000;
+
+    const fetchWithTimeout = async (
+      url: string,
+      options?: RequestInit
+    ): Promise<Response> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    interface AuthServerMetadata {
+      authorization_endpoint: string;
+      token_endpoint: string;
+      registration_endpoint?: string;
+      scopes_supported?: string[];
+    }
+
+    console.info(
+      `[mcp-manager] [${serverId}] Starting OAuth discovery from ${serverUrl}`
+    );
+
+    // Step 1: MCP spec discovery — GET serverUrl, inspect WWW-Authenticate header
+    let metadata: AuthServerMetadata | null = null;
+    try {
+      const response = await fetchWithTimeout(serverUrl);
+      const wwwAuth = response.headers.get("WWW-Authenticate");
+      if (wwwAuth) {
+        const resourceMetadataMatch = wwwAuth.match(/resource_metadata="([^"]+)"/);
+        const asMatch = wwwAuth.match(/\bas="([^"]+)"/);
+        const metadataUrl = resourceMetadataMatch?.[1] ?? asMatch?.[1] ?? null;
+        if (metadataUrl) {
+          const metaResponse = await fetchWithTimeout(metadataUrl);
+          if (metaResponse.ok) {
+            metadata = (await metaResponse.json()) as AuthServerMetadata;
+          }
+        }
+      }
+    } catch {
+      // Fall through to RFC 8414 fallback
+    }
+
+    // Step 2: RFC 8414 fallback
+    if (!metadata?.authorization_endpoint || !metadata?.token_endpoint) {
+      console.info(
+        `[mcp-manager] [${serverId}] MCP spec discovery failed, trying RFC 8414 fallback`
+      );
+      try {
+        const origin = new URL(serverUrl).origin;
+        const fallbackUrl = `${origin}/.well-known/oauth-authorization-server`;
+        const response = await fetchWithTimeout(fallbackUrl);
+        if (response.ok) {
+          metadata = (await response.json()) as AuthServerMetadata;
+        }
+      } catch {
+        // Both methods failed
+      }
+    }
+
+    // Step 3: Both failed
+    if (!metadata?.authorization_endpoint || !metadata?.token_endpoint) {
+      throw new OAuthDiscoveryError(
+        `OAuth metadata discovery failed for server "${serverId}". Unable to find authorization server metadata.`
+      );
+    }
+
+    const {
+      authorization_endpoint,
+      token_endpoint,
+      registration_endpoint,
+      scopes_supported,
+    } = metadata;
+
+    // Step 4: Skip registration if already registered this session
+    if (!this.oauthClients.has(serverId)) {
+      if (!registration_endpoint) {
+        throw new OAuthDiscoveryError(
+          `OAuth registration endpoint not found for server "${serverId}".`
+        );
+      }
+
+      // Step 5: POST registration_endpoint
+      console.info(`[mcp-manager] [${serverId}] Registering OAuth client`);
+      let regResponse: Response;
+      try {
+        regResponse = await fetchWithTimeout(registration_endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_name: "MCP Chat",
+            redirect_uris: [`http://localhost:${port}/oauth/callback`],
+            token_endpoint_auth_method: "none",
+            grant_types: ["authorization_code", "refresh_token"],
+            response_types: ["code"],
+          }),
+        });
+      } catch (err) {
+        throw new OAuthRegistrationError(
+          `OAuth client registration timed out or failed for server "${serverId}": ${(err as Error).message}`
+        );
+      }
+
+      if (!regResponse.ok) {
+        throw new OAuthRegistrationError(
+          `OAuth client registration failed for server "${serverId}": HTTP ${regResponse.status}`
+        );
+      }
+
+      const regData = (await regResponse.json()) as { client_id: string };
+      this.oauthClients.set(serverId, {
+        clientId: regData.client_id,
+        authorizationEndpoint: authorization_endpoint,
+        tokenEndpoint: token_endpoint,
+      });
+    }
+
+    const clientConfig = this.oauthClients.get(serverId)!;
+
+    // Step 6: Generate PKCE
+    const codeVerifier = randomBytes(32).toString("base64url");
+    const codeChallenge = createHash("sha256")
+      .update(codeVerifier)
+      .digest("base64url");
+
+    // Step 7: Generate state
+    const state = randomBytes(16).toString("base64url");
+
+    // Step 8: Store PendingAuthState (TTL = 10 min)
+    this.pendingStates.set(state, {
+      serverId,
+      codeVerifier,
+      expiresAt: Date.now() + 600_000,
+    });
+
+    // Step 9: Construct authorization URL
+    console.info(`[mcp-manager] [${serverId}] Constructing authorization URL`);
+    const authUrl = new URL(clientConfig.authorizationEndpoint);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("client_id", clientConfig.clientId);
+    authUrl.searchParams.set(
+      "redirect_uri",
+      `http://localhost:${port}/oauth/callback`
+    );
+    authUrl.searchParams.set("state", state);
+    authUrl.searchParams.set("code_challenge", codeChallenge);
+    authUrl.searchParams.set("code_challenge_method", "S256");
+    if (scopes_supported && scopes_supported.length > 0) {
+      authUrl.searchParams.set("scope", scopes_supported.join(" "));
+    }
+
+    return authUrl.toString();
   }
 
   async disconnectServer(id: string): Promise<void> {
