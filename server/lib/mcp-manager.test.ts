@@ -15,6 +15,23 @@ import type {
 } from "./mcp-manager.js";
 import type { McpServerConfig } from "../config.js";
 
+/** Subclass that stubs out connectToServer to avoid real network calls in OAuth tests. */
+class TestMCPClientManager extends MCPClientManager {
+  connectToServerCalls: Array<{
+    id: string;
+    config: McpServerConfig;
+    accessToken?: string;
+  }> = [];
+
+  override async connectToServer(
+    id: string,
+    config: McpServerConfig,
+    accessToken?: string
+  ): Promise<void> {
+    this.connectToServerCalls.push({ id, config, accessToken });
+  }
+}
+
 /** Creates a linked in-memory MCP server with the given tools, returns the client-side transport. */
 async function createMockServer(
   tools: Array<{
@@ -463,6 +480,140 @@ describe("MCPClientManager", () => {
       // 16 bytes → base64url → 22 chars (no padding)
       assert.equal(state.length, 22, `state should be 22 chars (16-byte Base64URL), got ${state.length}`);
       assert.match(state, /^[A-Za-z0-9_-]+$/, "state must be Base64URL characters only");
+    });
+  });
+
+  describe("completeOAuthFlow / failOAuthFlow", () => {
+    /** Helper: insert an AuthLock with N queued callbacks, returns the promise array and resolve/reject spies. */
+    function buildQueuedLock(
+      manager: MCPClientManager,
+      serverId: string,
+      count: number
+    ): Array<Promise<void>> {
+      const authLocks = (
+        manager as unknown as { authLocks: Map<string, AuthLock> }
+      ).authLocks;
+
+      const promises: Array<Promise<void>> = [];
+      const lock: AuthLock = { inProgress: true, queue: [] };
+      for (let i = 0; i < count; i++) {
+        const p = new Promise<void>((resolve, reject) => {
+          lock.queue.push({ resolve, reject });
+        });
+        promises.push(p);
+      }
+      authLocks.set(serverId, lock);
+      return promises;
+    }
+
+    it("(a) completeOAuthFlow resolves N queued promise callbacks in order", async () => {
+      const manager = new TestMCPClientManager();
+      const promises = buildQueuedLock(manager, "srv", 3);
+
+      const tokenSet: OAuthTokenSet = { accessToken: "tok" };
+      await manager.completeOAuthFlow("srv", tokenSet);
+
+      const results = await Promise.allSettled(promises);
+      for (const r of results) {
+        assert.equal(r.status, "fulfilled");
+      }
+    });
+
+    it("(b) completeOAuthFlow stores token in tokenSets map", async () => {
+      const manager = new TestMCPClientManager();
+      const tokenSet: OAuthTokenSet = {
+        accessToken: "access-123",
+        refreshToken: "refresh-456",
+        expiresAt: Date.now() + 3600_000,
+      };
+
+      await manager.completeOAuthFlow("srv", tokenSet);
+
+      const tokenSets = (
+        manager as unknown as { tokenSets: Map<string, OAuthTokenSet> }
+      ).tokenSets;
+      const stored = tokenSets.get("srv");
+      assert.ok(stored, "tokenSets should have an entry for serverId");
+      assert.equal(stored.accessToken, "access-123");
+      assert.equal(stored.refreshToken, "refresh-456");
+    });
+
+    it("(c) completeOAuthFlow calls connectToServer with the accessToken", async () => {
+      const manager = new TestMCPClientManager();
+      // Set oauthServerUrls so completeOAuthFlow tries to connect
+      const oauthServerUrls = (
+        manager as unknown as { oauthServerUrls: Map<string, string> }
+      ).oauthServerUrls;
+      oauthServerUrls.set("srv", "https://mcp.example.com/mcp");
+
+      const tokenSet: OAuthTokenSet = { accessToken: "my-access-token" };
+      await manager.completeOAuthFlow("srv", tokenSet);
+
+      assert.equal(manager.connectToServerCalls.length, 1);
+      const call = manager.connectToServerCalls[0];
+      assert.equal(call.id, "srv");
+      assert.equal(call.accessToken, "my-access-token");
+      assert.equal(call.config.type, "http");
+    });
+
+    it("(d) completeOAuthFlow clears authLock (inProgress=false, queue empty)", async () => {
+      const manager = new TestMCPClientManager();
+      buildQueuedLock(manager, "srv", 2);
+
+      await manager.completeOAuthFlow("srv", { accessToken: "tok" });
+
+      const authLocks = (
+        manager as unknown as { authLocks: Map<string, AuthLock> }
+      ).authLocks;
+      const lock = authLocks.get("srv");
+      assert.ok(lock, "authLock entry should still exist");
+      assert.equal(lock.inProgress, false);
+      assert.equal(lock.queue.length, 0);
+    });
+
+    it("(e) failOAuthFlow rejects all queued callbacks with the provided error", async () => {
+      const manager = new TestMCPClientManager();
+      const promises = buildQueuedLock(manager, "srv", 3);
+
+      const error = new Error("auth cancelled");
+      await manager.failOAuthFlow("srv", error);
+
+      const results = await Promise.allSettled(promises);
+      for (const r of results) {
+        assert.equal(r.status, "rejected");
+        assert.equal((r as PromiseRejectedResult).reason.message, "auth cancelled");
+      }
+    });
+
+    it("(f) failOAuthFlow clears authLock (inProgress=false, queue empty)", async () => {
+      const manager = new TestMCPClientManager();
+      const promises = buildQueuedLock(manager, "srv", 2);
+      // Suppress unhandled rejections from the queued promises
+      for (const p of promises) p.catch(() => {});
+
+      await manager.failOAuthFlow("srv", new Error("cancelled"));
+
+      const authLocks = (
+        manager as unknown as { authLocks: Map<string, AuthLock> }
+      ).authLocks;
+      const lock = authLocks.get("srv");
+      assert.ok(lock, "authLock entry should still exist");
+      assert.equal(lock.inProgress, false);
+      assert.equal(lock.queue.length, 0);
+    });
+
+    it("(g) completeOAuthFlow is a no-op when no lock entry exists", async () => {
+      const manager = new TestMCPClientManager();
+      await assert.doesNotReject(() =>
+        manager.completeOAuthFlow("no-lock-srv", { accessToken: "tok" })
+      );
+    });
+
+    it("(g) failOAuthFlow is a no-op when no lock entry exists", async () => {
+      const manager = new TestMCPClientManager();
+      await assert.doesNotReject(() =>
+        manager.failOAuthFlow("no-lock-srv", new Error("err"))
+      );
     });
   });
 

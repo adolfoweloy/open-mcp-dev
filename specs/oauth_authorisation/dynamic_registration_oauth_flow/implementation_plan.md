@@ -82,7 +82,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Test completeOAuthFlow and failOAuthFlow: (a) completeOAuthFlow resolves N queued promise
