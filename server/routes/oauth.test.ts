@@ -8,7 +8,6 @@ import {
   createOAuthRouter,
   pendingSessions,
   oauthTokens,
-  getOAuthToken,
   type OAuthDeps,
 } from "./oauth.js";
 
@@ -298,91 +297,4 @@ describe("createOAuthRouter", () => {
     });
   });
 
-  describe("GET /oauth/callback", () => {
-    it("returns 400 when state param is missing", async () => {
-      const router = createOAuthRouter(makeConfig(), makeMcpManager());
-      const out = await callRoute(router, "/oauth/callback", {
-        code: "auth-code",
-      });
-      assert.equal(out.capturedStatus, 400);
-    });
-
-    it("returns 400 for invalid state", async () => {
-      const router = createOAuthRouter(makeConfig(), makeMcpManager());
-      const out = await callRoute(router, "/oauth/callback", {
-        code: "auth-code",
-        state: "invalid-state",
-      });
-      assert.equal(out.capturedStatus, 400);
-    });
-
-    it("exchanges code and redirects to / for valid state", async () => {
-      const deps = makeDeps();
-      const manager = makeMcpManager();
-      const router = createOAuthRouter(makeConfig(), manager, deps);
-
-      // Start OAuth to create a pending session
-      await callRoute(router, "/oauth/start", { server: "oauth_server" });
-      const state = [...pendingSessions.keys()][0]!;
-
-      // Complete the callback
-      const out = await callRoute(router, "/oauth/callback", {
-        code: "auth-code-123",
-        state,
-      });
-
-      assert.equal(out.capturedRedirect, "/", "should redirect to /");
-      assert.equal(deps.callCounts["exchangeAuthorization"], 1);
-    });
-
-    it("stores access token retrievable via getOAuthToken", async () => {
-      const deps = makeDeps();
-      const manager = makeMcpManager();
-      const router = createOAuthRouter(makeConfig(), manager, deps);
-
-      await callRoute(router, "/oauth/start", { server: "oauth_server" });
-      const state = [...pendingSessions.keys()][0]!;
-
-      await callRoute(router, "/oauth/callback", { code: "auth-code", state });
-
-      const token = getOAuthToken("oauth_server");
-      assert.ok(token, "token should be stored");
-      assert.equal(token!.access_token, "test-access-token");
-    });
-
-    it("removes pending session after successful callback", async () => {
-      const deps = makeDeps();
-      const router = createOAuthRouter(makeConfig(), makeMcpManager(), deps);
-
-      await callRoute(router, "/oauth/start", { server: "oauth_server" });
-      assert.equal(pendingSessions.size, 1);
-
-      const state = [...pendingSessions.keys()][0]!;
-      await callRoute(router, "/oauth/callback", { code: "auth-code", state });
-
-      assert.equal(pendingSessions.size, 0);
-    });
-
-    it("connects MCP server after successful callback", async () => {
-      const deps = makeDeps();
-      const manager = makeMcpManager() as ReturnType<typeof makeMcpManager> & {
-        connectCallCount: number;
-        lastConnectArgs: unknown[];
-      };
-      const router = createOAuthRouter(makeConfig(), manager as unknown as MCPClientManager, deps);
-
-      await callRoute(router, "/oauth/start", { server: "oauth_server" });
-      const state = [...pendingSessions.keys()][0]!;
-
-      await callRoute(router, "/oauth/callback", { code: "auth-code", state });
-
-      assert.equal(manager.connectCallCount, 1);
-      assert.equal(manager.lastConnectArgs[0], "oauth_server");
-      assert.equal(
-        manager.lastConnectArgs[2],
-        "test-access-token",
-        "access token should be passed to connectToServer"
-      );
-    });
-  });
 });

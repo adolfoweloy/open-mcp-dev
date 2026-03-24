@@ -486,6 +486,18 @@ export class MCPClientManager {
     }
   }
 
+  getPendingState(state: string): PendingAuthState | undefined {
+    return this.pendingStates.get(state);
+  }
+
+  deletePendingState(state: string): void {
+    this.pendingStates.delete(state);
+  }
+
+  getOAuthClientConfig(serverId: string): OAuthClientConfig | undefined {
+    return this.oauthClients.get(serverId);
+  }
+
   async disconnectServer(id: string): Promise<void> {
     const client = this.clients.get(id);
     if (!client) return;

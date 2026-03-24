@@ -93,7 +93,7 @@ tasks:
       lock entry exists (no throw).
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Implement MCPClientManager.callWithAuth<T>(serverId: string, fn: () => Promise<T>,
@@ -114,7 +114,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test callWithAuth: (a) attaches Bearer token to fn() call when token exists; (b) first 401
@@ -128,7 +128,7 @@ tasks:
       refresh token → skips refresh, emits auth_required.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Refactor GET /oauth/callback in server/routes/oauth.ts to return an HTML page instead of

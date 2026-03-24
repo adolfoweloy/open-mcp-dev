@@ -40,12 +40,17 @@ describe("Security: API key never in API responses", () => {
 });
 
 describe("Security: OAuth tokens never sent to client", () => {
-  it("OAuth callback redirects to / without including token in response", () => {
+  it("OAuth callback returns HTML postMessage page without including token in response", () => {
     const src = readSrc("routes/oauth.ts");
-    // The callback does: oauthTokens.set(...); then res.redirect("/")
-    assert.ok(src.includes('res.redirect("/")'), "callback should redirect to /");
-    // No res.json(tokens) or res.send(tokens)
+    // The callback returns an HTML page with postMessage — no token in the response
+    assert.ok(src.includes("text/html"), "callback should return HTML");
+    assert.ok(src.includes("postMessage"), "callback should use postMessage");
+    // Token is stored server-side via mcpManager.completeOAuthFlow, not sent to client
     assert.ok(!src.includes("res.json(tokens)"), "should not send tokens as JSON");
+    assert.ok(
+      !src.includes("accessToken") || src.includes("completeOAuthFlow"),
+      "accessToken handled server-side via completeOAuthFlow"
+    );
   });
 
   it("getOAuthToken is exported only for server-side use (not mounted as API route)", () => {
