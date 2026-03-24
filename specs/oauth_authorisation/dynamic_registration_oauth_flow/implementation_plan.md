@@ -334,3 +334,34 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
     status: todo
+
+  - task: >
+      Remove legacy OAuth start route and clean up old module-level state from
+      server/routes/oauth.ts. Changes: (1) Delete the GET /oauth/start route handler entirely —
+      it is replaced by POST /api/mcp/:serverId/connect + GET /api/mcp/:serverId/auth/url. (2)
+      Remove module-level exports: pendingSessions Map, oauthTokens Map, getOAuthToken function.
+      These are replaced by MCPClientManager's in-memory oauthClients, tokenSets, and
+      pendingStates maps. (3) Remove OAuthDeps interface and defaultDeps if they are no longer
+      needed by the refactored callback. (4) Remove the getOAuthToken parameter from
+      createChatRouter in server/routes/chat.ts — token attachment is now handled by
+      callWithAuth inside MCPClientManager. (5) Update server/index.ts: remove the getOAuthToken
+      import from oauth.ts and stop passing it to createChatRouter.
+    refs:
+      - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
+      - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
+      - specs/architecture.md
+    status: todo
+
+  - task: >
+      Test cleanup for removed legacy OAuth code: (a) delete all tests in
+      server/routes/oauth.test.ts that cover GET /oauth/start (including: missing server param,
+      unknown server, non-OAuth server, stdio server, redirect to auth URL, pending session
+      storage, registerClient call, skip registerClient when client_id pre-configured); (b) remove
+      the "mounts GET /api/oauth/start and returns 400" test from server/index.test.ts; (c) remove
+      the "stores access token retrievable via getOAuthToken" test and any other tests that import
+      or use pendingSessions, oauthTokens, or getOAuthToken from oauth.ts; (d) remove
+      getOAuthToken argument from createChatRouter calls in server/routes/chat.test.ts if present;
+      (e) verify no remaining test imports reference the removed exports.
+    refs:
+      - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
+    status: todo
