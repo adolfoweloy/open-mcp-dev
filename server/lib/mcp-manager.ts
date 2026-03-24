@@ -8,9 +8,36 @@ import { jsonSchema } from "ai";
 import type { McpServerConfig } from "../config.js";
 import type { McpServerStatus } from "../../shared/types.js";
 
+export interface OAuthClientConfig {
+  clientId: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+}
+
+export interface OAuthTokenSet {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number; // Date.now() ms
+}
+
+export interface AuthLock {
+  inProgress: boolean;
+  queue: Array<{ resolve: () => void; reject: (err: Error) => void }>;
+}
+
+export interface PendingAuthState {
+  serverId: string;
+  codeVerifier: string;
+  expiresAt: number; // Date.now() ms, TTL = 10 min
+}
+
 export class MCPClientManager {
   private clients = new Map<string, Client>();
   private pending = new Map<string, Promise<void>>();
+  private oauthClients = new Map<string, OAuthClientConfig>();
+  private tokenSets = new Map<string, OAuthTokenSet>();
+  private authLocks = new Map<string, AuthLock>();
+  private pendingStates = new Map<string, PendingAuthState>();
 
   async connectToServer(
     id: string,
