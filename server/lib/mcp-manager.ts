@@ -53,6 +53,7 @@ export class MCPClientManager {
   private tokenSets = new Map<string, OAuthTokenSet>();
   private authLocks = new Map<string, AuthLock>();
   private pendingStates = new Map<string, PendingAuthState>();
+  private oauthServerUrls = new Map<string, string>();
 
   async connectToServer(
     id: string,
@@ -163,6 +164,7 @@ export class MCPClientManager {
       scopes_supported?: string[];
     }
 
+    this.oauthServerUrls.set(serverId, serverUrl);
     console.info(
       `[mcp-manager] [${serverId}] Starting OAuth discovery from ${serverUrl}`
     );
@@ -296,6 +298,43 @@ export class MCPClientManager {
     }
 
     return authUrl.toString();
+  }
+
+  async completeOAuthFlow(
+    serverId: string,
+    tokenSet: OAuthTokenSet
+  ): Promise<void> {
+    this.tokenSets.set(serverId, tokenSet);
+    console.info(`[mcp-manager] [${serverId}] OAuth flow complete, token received`);
+
+    // Connect transport with the new access token
+    const serverUrl = this.oauthServerUrls.get(serverId);
+    if (serverUrl) {
+      const serverConfig: McpServerConfig = { type: "http", url: serverUrl, oauth: true };
+      await this.connectToServer(serverId, serverConfig, tokenSet.accessToken);
+    }
+
+    // Resolve all queued callbacks
+    const lock = this.authLocks.get(serverId);
+    if (!lock) return;
+    const queue = lock.queue.splice(0);
+    lock.inProgress = false;
+    for (const { resolve } of queue) {
+      resolve();
+    }
+  }
+
+  async failOAuthFlow(serverId: string, error: Error): Promise<void> {
+    console.info(
+      `[mcp-manager] [${serverId}] OAuth flow failed: ${error.message}`
+    );
+    const lock = this.authLocks.get(serverId);
+    if (!lock) return;
+    const queue = lock.queue.splice(0);
+    lock.inProgress = false;
+    for (const { reject } of queue) {
+      reject(error);
+    }
   }
 
   async disconnectServer(id: string): Promise<void> {

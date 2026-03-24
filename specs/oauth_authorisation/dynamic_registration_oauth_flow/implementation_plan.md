@@ -20,7 +20,7 @@ tasks:
       use by the OAuth route module.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test MCPClientManager OAuth data structures: all four maps (oauthClients, tokenSets,
@@ -28,7 +28,7 @@ tasks:
       match expected shape via TypeScript compilation.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Implement MCPClientManager.prepareOAuthFlow(serverId: string, serverUrl: string, port:
@@ -52,7 +52,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test MCPClientManager.prepareOAuthFlow: (a) happy path — mock discovery (MCP spec) succeeds,
@@ -66,7 +66,7 @@ tasks:
       Base64URL.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Implement MCPClientManager.completeOAuthFlow(serverId: string, tokenSet: OAuthTokenSet):
