@@ -46,6 +46,17 @@ export interface PendingAuthState {
   expiresAt: number; // Date.now() ms, TTL = 10 min
 }
 
+function is401Error(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as Record<string, unknown>;
+  if (e["status"] === 401 || e["statusCode"] === 401) return true;
+  const res = e["response"];
+  if (typeof res === "object" && res !== null) {
+    return (res as Record<string, unknown>)["status"] === 401;
+  }
+  return false;
+}
+
 export class MCPClientManager {
   private clients = new Map<string, Client>();
   private pending = new Map<string, Promise<void>>();
@@ -321,6 +332,144 @@ export class MCPClientManager {
     lock.inProgress = false;
     for (const { resolve } of queue) {
       resolve();
+    }
+  }
+
+  async callWithAuth<T>(
+    serverId: string,
+    fn: () => Promise<T>,
+    emitEvent?: (event: object) => void
+  ): Promise<T> {
+    // (1) Proactive refresh — if token expires within 60 s
+    const tokenSet = this.tokenSets.get(serverId);
+    if (
+      tokenSet &&
+      tokenSet.expiresAt !== undefined &&
+      tokenSet.expiresAt - Date.now() < 60_000
+    ) {
+      if (tokenSet.refreshToken) {
+        const existingLock = this.authLocks.get(serverId);
+        if (!existingLock || !existingLock.inProgress) {
+          console.info(`[mcp-manager] [${serverId}] Token refresh start`);
+          await this._tryRefreshToken(serverId, tokenSet);
+        }
+      }
+      // No refresh token → fall through; fn() will likely 401 → full re-auth
+    }
+
+    // (2) Call fn()
+    try {
+      return await fn();
+    } catch (err) {
+      if (!is401Error(err)) throw err;
+    }
+
+    // (3) Handle 401
+    let lock = this.authLocks.get(serverId);
+    if (!lock) {
+      lock = { inProgress: false, queue: [] };
+      this.authLocks.set(serverId, lock);
+    }
+
+    if (lock.inProgress) {
+      // Queue behind existing lock
+      console.info(
+        `[mcp-manager] [${serverId}] 401 received, queuing behind existing auth lock`
+      );
+      await new Promise<void>((resolve, reject) => {
+        lock!.queue.push({ resolve, reject });
+      });
+    } else {
+      // First 401 — set lock, emit auth_required, queue ourselves
+      lock.inProgress = true;
+      console.info(
+        `[mcp-manager] [${serverId}] 401 received, emitting auth_required`
+      );
+      emitEvent?.({ type: "auth_required", serverId });
+      await new Promise<void>((resolve, reject) => {
+        lock!.queue.push({ resolve, reject });
+      });
+    }
+
+    // Retry fn() after auth completes
+    return await fn();
+  }
+
+  private async _tryRefreshToken(
+    serverId: string,
+    tokenSet: OAuthTokenSet
+  ): Promise<void> {
+    const clientConfig = this.oauthClients.get(serverId);
+    if (!clientConfig || !tokenSet.refreshToken) return;
+
+    let lock = this.authLocks.get(serverId);
+    if (!lock) {
+      lock = { inProgress: false, queue: [] };
+      this.authLocks.set(serverId, lock);
+    }
+    lock.inProgress = true;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      let refreshResponse: Response;
+      try {
+        refreshResponse = await fetch(clientConfig.tokenEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            refresh_token: tokenSet.refreshToken,
+            client_id: clientConfig.clientId,
+          }).toString(),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      if (refreshResponse.ok) {
+        const data = (await refreshResponse.json()) as {
+          access_token: string;
+          refresh_token?: string;
+          expires_in?: number;
+        };
+        const newTokenSet: OAuthTokenSet = {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token ?? tokenSet.refreshToken,
+          expiresAt: data.expires_in
+            ? Date.now() + data.expires_in * 1000
+            : undefined,
+        };
+        this.tokenSets.set(serverId, newTokenSet);
+        const serverUrl = this.oauthServerUrls.get(serverId);
+        if (serverUrl) {
+          const serverConfig: McpServerConfig = {
+            type: "http",
+            url: serverUrl,
+            oauth: true,
+          };
+          await this.connectToServer(serverId, serverConfig, newTokenSet.accessToken);
+        }
+        console.info(`[mcp-manager] [${serverId}] Token refresh success`);
+        lock.inProgress = false;
+        const queue = lock.queue.splice(0);
+        for (const { resolve } of queue) resolve();
+      } else {
+        // Non-2xx — clear refreshToken, fall through to re-auth
+        this.tokenSets.set(serverId, { ...tokenSet, refreshToken: undefined });
+        console.info(
+          `[mcp-manager] [${serverId}] Token refresh failed (non-2xx), will re-auth`
+        );
+        lock.inProgress = false;
+      }
+    } catch (err) {
+      // Network/timeout error — clear refreshToken, fall through to re-auth
+      this.tokenSets.set(serverId, { ...tokenSet, refreshToken: undefined });
+      console.info(
+        `[mcp-manager] [${serverId}] Token refresh failed: ${(err as Error).message}`
+      );
+      lock.inProgress = false;
     }
   }
 

@@ -617,6 +617,397 @@ describe("MCPClientManager", () => {
     });
   });
 
+  describe("callWithAuth", () => {
+    const TOKEN_ENDPOINT = "https://auth.example.com/token";
+    const CLIENT_ID = "test-client-id";
+
+    /** Helper: inject an OAuthClientConfig into the manager. */
+    function setOAuthClient(manager: MCPClientManager, serverId: string): void {
+      const oauthClients = (
+        manager as unknown as { oauthClients: Map<string, OAuthClientConfig> }
+      ).oauthClients;
+      oauthClients.set(serverId, {
+        clientId: CLIENT_ID,
+        authorizationEndpoint: "https://auth.example.com/authorize",
+        tokenEndpoint: TOKEN_ENDPOINT,
+      });
+    }
+
+    /** Helper: inject a tokenSet into the manager. */
+    function setTokenSet(
+      manager: MCPClientManager,
+      serverId: string,
+      tokenSet: OAuthTokenSet
+    ): void {
+      const tokenSets = (
+        manager as unknown as { tokenSets: Map<string, OAuthTokenSet> }
+      ).tokenSets;
+      tokenSets.set(serverId, tokenSet);
+    }
+
+    /** Helper: get the authLock for a serverId. */
+    function getAuthLock(
+      manager: MCPClientManager,
+      serverId: string
+    ): AuthLock | undefined {
+      return (
+        manager as unknown as { authLocks: Map<string, AuthLock> }
+      ).authLocks.get(serverId);
+    }
+
+    /** Helper: get the stored tokenSet for a serverId. */
+    function getTokenSet(
+      manager: MCPClientManager,
+      serverId: string
+    ): OAuthTokenSet | undefined {
+      return (
+        manager as unknown as { tokenSets: Map<string, OAuthTokenSet> }
+      ).tokenSets.get(serverId);
+    }
+
+    /** Creates a 401 error as the HTTP transport would throw. */
+    function make401Error(): Error {
+      return Object.assign(new Error("Unauthorized"), { status: 401 });
+    }
+
+    let originalFetch: typeof globalThis.fetch;
+    before(() => {
+      originalFetch = globalThis.fetch;
+    });
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("(a) calls fn() directly when token exists and is not near expiry", async () => {
+      const manager = new TestMCPClientManager();
+      setTokenSet(manager, "srv", {
+        accessToken: "my-token",
+        expiresAt: Date.now() + 3600_000, // 1 hour away
+      });
+
+      let fnCalled = false;
+      const fn = async () => {
+        fnCalled = true;
+        return "result";
+      };
+
+      const result = await manager.callWithAuth("srv", fn);
+      assert.equal(result, "result");
+      assert.equal(fnCalled, true);
+    });
+
+    it("(b) first 401 sets inProgress=true and calls emitEvent", async () => {
+      const manager = new TestMCPClientManager();
+      const events: object[] = [];
+
+      let firstCall = true;
+      const fn = async (): Promise<string> => {
+        if (firstCall) {
+          firstCall = false;
+          throw make401Error();
+        }
+        return "ok";
+      };
+
+      // Start callWithAuth but don't await yet
+      const promise = manager.callWithAuth("srv", fn, (e) => events.push(e));
+
+      // Let microtasks run so callWithAuth reaches the waiting state
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const lock = getAuthLock(manager, "srv");
+      assert.ok(lock, "authLock should exist");
+      assert.equal(lock.inProgress, true);
+      assert.equal(events.length, 1);
+      assert.deepEqual(events[0], { type: "auth_required", serverId: "srv" });
+
+      // Resolve the lock queue to unblock the promise
+      lock.queue[0].resolve();
+      await promise;
+    });
+
+    it("(c) after completeOAuthFlow resolves lock, fn() is retried and returns result", async () => {
+      const manager = new TestMCPClientManager();
+      const events: object[] = [];
+
+      let callCount = 0;
+      const fn = async (): Promise<string> => {
+        callCount++;
+        if (callCount === 1) throw make401Error();
+        return "retried-result";
+      };
+
+      const promise = manager.callWithAuth("srv", fn, (e) => events.push(e));
+
+      // Let callWithAuth reach waiting state
+      await Promise.resolve();
+      await Promise.resolve();
+
+      assert.equal(events.length, 1, "auth_required should have been emitted");
+
+      // Simulate completeOAuthFlow resolving the lock
+      await manager.completeOAuthFlow("srv", { accessToken: "new-token" });
+
+      const result = await promise;
+      assert.equal(result, "retried-result");
+      assert.equal(callCount, 2);
+    });
+
+    it("(d) concurrent 401s for the same server all queue behind one lock — only one auth_required emitted", async () => {
+      const manager = new TestMCPClientManager();
+      const events: object[] = [];
+
+      let resolveFirst!: () => void;
+      let firstCall = true;
+
+      const fn = async (): Promise<string> => {
+        if (firstCall) {
+          firstCall = false;
+          throw make401Error();
+        }
+        // Subsequent calls also 401 until auth completes
+        throw make401Error();
+      };
+
+      // All three callers will 401 on first call
+      let callCountA = 0;
+      let callCountB = 0;
+      let callCountC = 0;
+
+      const fnA = async (): Promise<string> => {
+        callCountA++;
+        if (callCountA === 1) throw make401Error();
+        return "A";
+      };
+      const fnB = async (): Promise<string> => {
+        callCountB++;
+        if (callCountB === 1) throw make401Error();
+        return "B";
+      };
+      const fnC = async (): Promise<string> => {
+        callCountC++;
+        if (callCountC === 1) throw make401Error();
+        return "C";
+      };
+
+      const pA = manager.callWithAuth("srv", fnA, (e) => events.push(e));
+      const pB = manager.callWithAuth("srv", fnB, (e) => events.push(e));
+      const pC = manager.callWithAuth("srv", fnC, (e) => events.push(e));
+
+      // Let all three reach their waiting states
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Only one auth_required should have been emitted
+      const authRequiredEvents = events.filter(
+        (e) => (e as { type: string }).type === "auth_required"
+      );
+      assert.equal(
+        authRequiredEvents.length,
+        1,
+        "only one auth_required should be emitted"
+      );
+
+      const lock = getAuthLock(manager, "srv");
+      assert.ok(lock, "lock should exist");
+      assert.equal(lock.inProgress, true);
+
+      // Queue should have entries from B and C (A set the lock and is also queued)
+      assert.ok(lock.queue.length >= 1, "queue should have waiting callers");
+
+      // Resolve via completeOAuthFlow
+      await manager.completeOAuthFlow("srv", { accessToken: "new-token" });
+
+      const [rA, rB, rC] = await Promise.all([pA, pB, pC]);
+      assert.equal(rA, "A");
+      assert.equal(rB, "B");
+      assert.equal(rC, "C");
+    });
+
+    it("(e) failOAuthFlow causes all queued callers to reject with 'OAuth cancelled by user'", async () => {
+      const manager = new TestMCPClientManager();
+
+      let callCountA = 0;
+      let callCountB = 0;
+      const fnA = async (): Promise<string> => {
+        callCountA++;
+        if (callCountA === 1) throw make401Error();
+        return "A";
+      };
+      const fnB = async (): Promise<string> => {
+        callCountB++;
+        if (callCountB === 1) throw make401Error();
+        return "B";
+      };
+
+      const pA = manager.callWithAuth("srv", fnA, () => {});
+      const pB = manager.callWithAuth("srv", fnB, () => {});
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const cancelError = new Error("OAuth cancelled by user");
+      await manager.failOAuthFlow("srv", cancelError);
+
+      const [rA, rB] = await Promise.allSettled([pA, pB]);
+      assert.equal(rA.status, "rejected");
+      assert.equal(rB.status, "rejected");
+    });
+
+    it("(f) proactive refresh fires when expiresAt is within 60 s and refreshToken exists", async () => {
+      const manager = new TestMCPClientManager();
+      setOAuthClient(manager, "srv");
+      setTokenSet(manager, "srv", {
+        accessToken: "old-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() + 30_000, // within 60s
+      });
+
+      let fetchCalled = false;
+      globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+            ? input.href
+            : (input as Request).url;
+        if (url === TOKEN_ENDPOINT) {
+          fetchCalled = true;
+          return new Response(
+            JSON.stringify({
+              access_token: "new-access-token",
+              expires_in: 3600,
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      };
+
+      const fn = async () => "ok";
+      await manager.callWithAuth("srv", fn);
+
+      assert.equal(fetchCalled, true, "token endpoint should be called for proactive refresh");
+      const stored = getTokenSet(manager, "srv");
+      assert.equal(stored?.accessToken, "new-access-token");
+    });
+
+    it("(g) successful refresh stores new tokenSet and does not emit auth_required", async () => {
+      const manager = new TestMCPClientManager();
+      setOAuthClient(manager, "srv");
+      setTokenSet(manager, "srv", {
+        accessToken: "old-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() + 30_000,
+      });
+
+      globalThis.fetch = async (): Promise<Response> =>
+        new Response(
+          JSON.stringify({ access_token: "refreshed-token", expires_in: 3600 }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+
+      const events: object[] = [];
+      const fn = async () => "result";
+      await manager.callWithAuth("srv", fn, (e) => events.push(e));
+
+      const authRequiredEvents = events.filter(
+        (e) => (e as { type: string }).type === "auth_required"
+      );
+      assert.equal(authRequiredEvents.length, 0, "auth_required should NOT be emitted");
+      assert.equal(getTokenSet(manager, "srv")?.accessToken, "refreshed-token");
+    });
+
+    it("(h) refresh failure (non-2xx) falls back to emitting auth_required", async () => {
+      const manager = new TestMCPClientManager();
+      setOAuthClient(manager, "srv");
+      setTokenSet(manager, "srv", {
+        accessToken: "old-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() + 30_000,
+      });
+
+      globalThis.fetch = async (): Promise<Response> =>
+        new Response(JSON.stringify({ error: "invalid_grant" }), {
+          status: 400,
+        });
+
+      const events: object[] = [];
+      let callCount = 0;
+      const fn = async (): Promise<string> => {
+        callCount++;
+        if (callCount === 1) throw make401Error();
+        return "ok";
+      };
+
+      const promise = manager.callWithAuth("srv", fn, (e) => events.push(e));
+
+      // Extra ticks needed: (1) fetch resolves, (2) _tryRefreshToken processes non-2xx and returns,
+      // (3) callWithAuth calls fn() which throws, (4) catch block emits auth_required
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // auth_required should be emitted
+      const authRequiredEvents = events.filter(
+        (e) => (e as { type: string }).type === "auth_required"
+      );
+      assert.equal(authRequiredEvents.length, 1, "auth_required should be emitted after refresh failure");
+
+      // Resolve the lock to complete the test
+      const lock = getAuthLock(manager, "srv");
+      assert.ok(lock);
+      lock.queue[0].resolve();
+      await promise;
+    });
+
+    it("(i) no refresh token → skips refresh, emits auth_required", async () => {
+      const manager = new TestMCPClientManager();
+      setOAuthClient(manager, "srv");
+      setTokenSet(manager, "srv", {
+        accessToken: "old-token",
+        // no refreshToken
+        expiresAt: Date.now() + 30_000,
+      });
+
+      let fetchCalled = false;
+      globalThis.fetch = async (): Promise<Response> => {
+        fetchCalled = true;
+        return new Response("{}", { status: 200 });
+      };
+
+      const events: object[] = [];
+      let callCount = 0;
+      const fn = async (): Promise<string> => {
+        callCount++;
+        if (callCount === 1) throw make401Error();
+        return "ok";
+      };
+
+      const promise = manager.callWithAuth("srv", fn, (e) => events.push(e));
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      assert.equal(fetchCalled, false, "no token endpoint call without refreshToken");
+      const authRequiredEvents = events.filter(
+        (e) => (e as { type: string }).type === "auth_required"
+      );
+      assert.equal(authRequiredEvents.length, 1, "auth_required should be emitted");
+
+      const lock = getAuthLock(manager, "srv");
+      assert.ok(lock);
+      lock.queue[0].resolve();
+      await promise;
+    });
+  });
+
   describe("getToolsForAiSdk", () => {
     it("returns tools namespaced as {serverId}__{toolName}", async () => {
       const manager = new MCPClientManager();
