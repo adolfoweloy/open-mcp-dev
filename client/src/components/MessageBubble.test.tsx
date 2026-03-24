@@ -65,7 +65,7 @@ describe("MessageBubble", () => {
       {
         type: "tool-result",
         content: [{ type: "resource", mimeType: "text/html", uri: "mcp://my-server/page" }],
-      } as UIMessage["parts"][0],
+      } as unknown as UIMessage["parts"][0],
     ]);
     render(<MessageBubble message={msg} />);
     const iframe = screen.getByTitle(/MCP Resource/);
@@ -81,7 +81,7 @@ describe("MessageBubble", () => {
       {
         type: "tool-result",
         content: [{ type: "text", text: "plain result" }],
-      } as UIMessage["parts"][0],
+      } as unknown as UIMessage["parts"][0],
     ]);
     render(<MessageBubble message={msg} />);
     // Should have a pre with JSON content
