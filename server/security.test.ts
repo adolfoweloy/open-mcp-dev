@@ -53,17 +53,22 @@ describe("Security: OAuth tokens never sent to client", () => {
     );
   });
 
-  it("getOAuthToken is exported only for server-side use (not mounted as API route)", () => {
-    const indexSrc = readSrc("index.ts");
-    // getOAuthToken is imported but never mounted as a route
+  it("OAuth tokens are managed server-side via MCPClientManager.callWithAuth (not exposed as route)", () => {
+    const managerSrc = readSrc("lib/mcp-manager.ts");
+    // Token storage and attachment is inside MCPClientManager
     assert.ok(
-      indexSrc.includes("getOAuthToken"),
-      "getOAuthToken imported in index.ts"
+      managerSrc.includes("callWithAuth"),
+      "MCPClientManager exposes callWithAuth for token-aware requests"
     );
-    // It should be passed as a parameter to createChatRouter, not exposed as a route
     assert.ok(
-      indexSrc.includes("createChatRouter(config, mcpManager, getOAuthToken)"),
-      "getOAuthToken passed to chat router, not exposed directly"
+      managerSrc.includes("tokenSets"),
+      "token storage is inside MCPClientManager"
+    );
+    // index.ts does not export or pass tokens directly
+    const indexSrc = readSrc("index.ts");
+    assert.ok(
+      !indexSrc.includes("getOAuthToken"),
+      "getOAuthToken should no longer be referenced in index.ts"
     );
   });
 });

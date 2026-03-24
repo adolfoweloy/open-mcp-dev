@@ -137,24 +137,6 @@ describe("createApp", () => {
     });
   });
 
-  it("mounts GET /api/oauth/start and returns 400 for missing server param", async () => {
-    const config = makeConfig();
-    const { manager } = makeMcpManager();
-    const app = createApp(config, manager);
-
-    await new Promise<void>((resolve) => {
-      const server = app.listen(0, async () => {
-        const port = (server.address() as { port: number }).port;
-        try {
-          const r = await fetch(`http://localhost:${port}/api/oauth/start`);
-          assert.equal(r.status, 400);
-        } finally {
-          server.close(() => resolve());
-        }
-      });
-    });
-  });
-
   it("mounts POST /api/mcp/connect and returns 404 for unknown server", async () => {
     const config = makeConfig();
     const { manager } = makeMcpManager();

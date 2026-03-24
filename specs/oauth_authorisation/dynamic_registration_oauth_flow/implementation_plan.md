@@ -323,7 +323,7 @@ tasks:
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/design.md
-    status: todo
+    status: done
 
   - task: >
       Test updated Chat.tsx: (a) an auth_required data part with serverId "foo" causes
@@ -333,7 +333,7 @@ tasks:
       current banner.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Remove legacy OAuth start route and clean up old module-level state from

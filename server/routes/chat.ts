@@ -8,8 +8,7 @@ import type { ModelSelection } from "../../shared/types.js";
 
 export function createChatRouter(
   config: Config,
-  mcpManager: MCPClientManager,
-  getOAuthToken?: (serverId: string) => { access_token?: string } | undefined
+  mcpManager: MCPClientManager
 ) {
   const router = Router();
 

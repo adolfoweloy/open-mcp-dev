@@ -7,7 +7,7 @@ import { createChatRouter } from "./routes/chat.js";
 import { createModelsRouter } from "./routes/models.js";
 import { createMcpRouter } from "./routes/mcp.js";
 import { createMcpProxyRouter } from "./routes/mcp-proxy.js";
-import { createOAuthRouter, getOAuthToken } from "./routes/oauth.js";
+import { createOAuthRouter } from "./routes/oauth.js";
 
 /**
  * Wire all API routes onto an Express application.
@@ -17,7 +17,7 @@ export function createApp(config: Config, mcpManager: MCPClientManager) {
   const app = express();
   app.use(express.json());
 
-  app.use("/api", createChatRouter(config, mcpManager, getOAuthToken));
+  app.use("/api", createChatRouter(config, mcpManager));
   app.use("/api", createModelsRouter(config));
   app.use("/api", createMcpRouter(config, mcpManager));
   app.use("/api", createMcpProxyRouter(mcpManager));
