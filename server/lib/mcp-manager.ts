@@ -531,7 +531,10 @@ export class MCPClientManager {
     return this.clients.get(id);
   }
 
-  async getToolsForAiSdk(serverIds?: string[]): Promise<ToolSet> {
+  async getToolsForAiSdk(
+    serverIds?: string[],
+    emitEvent?: (event: object) => void
+  ): Promise<ToolSet> {
     const ids = serverIds ?? Array.from(this.clients.keys());
     const toolSet: ToolSet = {};
 
@@ -570,11 +573,15 @@ export class MCPClientManager {
           description: tool.description ?? "",
           parameters: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
           execute: async (args: unknown) => {
-            const response = await client.callTool({
-              name: tool.name,
-              arguments: args as Record<string, unknown>,
-            });
-            return response;
+            return this.callWithAuth(
+              serverId,
+              () =>
+                client.callTool({
+                  name: tool.name,
+                  arguments: args as Record<string, unknown>,
+                }),
+              emitEvent
+            );
           },
         };
       }

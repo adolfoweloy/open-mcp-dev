@@ -29,28 +29,29 @@ export function createChatRouter(
     }
 
     const systemPrompt = getSystemPrompt(model, config);
-    const tools = await mcpManager.getToolsForAiSdk(selectedServers);
-
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("X-Vercel-AI-Data-Stream", "v1");
-
-    const attempt = async () => {
-      const result = streamText({
-        model: llm,
-        system: systemPrompt,
-        messages: convertToCoreMessages(messages as Parameters<typeof convertToCoreMessages>[0]),
-        tools,
-        maxSteps: 20,
-        onError: (err) => console.error("[chat]", err),
-      });
-      result.pipeDataStreamToResponse(res);
-      return result;
-    };
 
     try {
-      await attempt();
+      pipeDataStreamToResponse(res, {
+        execute: async (dataStreamWriter) => {
+          const emitEvent = (event: object) => dataStreamWriter.writeData(event as Parameters<typeof dataStreamWriter.writeData>[0]);
+          const tools = await mcpManager.getToolsForAiSdk(selectedServers, emitEvent);
+
+          const result = streamText({
+            model: llm,
+            system: systemPrompt,
+            messages: convertToCoreMessages(messages as Parameters<typeof convertToCoreMessages>[0]),
+            tools,
+            maxSteps: 20,
+            onError: (err) => console.error("[chat]", err),
+          });
+          result.mergeIntoDataStream(dataStreamWriter);
+        },
+        onError: (err) => {
+          console.error("[chat] fatal error", err);
+          return (err as Error).message;
+        },
+      });
     } catch (err) {
-      // Surface the error inline if something went wrong before streaming started
       console.error("[chat] fatal error", err);
       if (!res.headersSent) {
         res.status(500).json({ error: (err as Error).message });
