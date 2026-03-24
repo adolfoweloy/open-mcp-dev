@@ -186,3 +186,28 @@ Offer to refine based on their feedback.
 
 Once the user confirms the spec is correct, output `[DONE]` on its own line.
 This signals the system that the interview is complete and will end the session.
+
+
+Assistant: I've reviewed the project. I can see stdio transport is already partially implemented — `StdioClientTransport` is wired up in `MCPClientManager` and the `config.yaml` schema supports it. Let me understand what you want to specify.
+
+---
+
+**1 - What is the primary goal of this stdio spec?**
+  a. Document and formalize what's already built (no new behavior)
+  b. Extend stdio support with new capabilities (e.g. server lifecycle management, health monitoring)
+  c. Fix known gaps in the current stdio implementation
+  d. Other (describe below)
+
+**2 - What does the user experience look like for stdio servers today?**
+  a. They just work — config.yaml entry → auto-connect at startup, no UI needed
+  b. There are pain points (crashes, restarts, zombie processes) that need addressing
+  c. There's no feedback in the UI about stdio server health
+  d. Other (describe below)
+
+**3 - What scope are you thinking for this spec?**
+  a. Just the transport layer (connect/disconnect/reconnect)
+  b. Full lifecycle: spawn, health check, restart on crash, graceful shutdown
+  c. UI visibility (show stdio server status, logs, restart button)
+  d. Other (describe below)
+
+User: 1.d (I actually need to konw if stdio is already supported, if so, abort the creation of specs then)

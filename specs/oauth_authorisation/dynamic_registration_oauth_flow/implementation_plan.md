@@ -308,7 +308,7 @@ tasks:
       listener from wrong origin does not trigger loadServers.
     refs:
       - specs/oauth_authorisation/dynamic_registration_oauth_flow/requirements.md
-    status: todo
+    status: done
 
   - task: >
       Update client/src/components/Chat.tsx to handle auth_required data stream events and show
