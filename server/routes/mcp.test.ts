@@ -323,4 +323,93 @@ describe("createMcpRouter", () => {
       assert.ok((json as { error: string }).error.includes("OAuth discovery failed"));
     });
   });
+
+  describe("GET /mcp/:serverId/auth/url", () => {
+    it("returns 404 for unknown serverId", async () => {
+      const config = makeConfig();
+      const manager = makeMcpManager();
+      const router = createMcpRouter(config, manager);
+
+      const { status, json } = await callParamRoute(
+        router, "GET", "/mcp/:serverId/auth/url",
+        { serverId: "unknown_server" }
+      );
+
+      assert.equal(status, 404);
+      assert.ok((json as { error: string }).error.includes("unknown_server"));
+    });
+
+    it("returns 404 for non-OAuth HTTP server", async () => {
+      const config = makeConfig();
+      const manager = makeMcpManager();
+      const router = createMcpRouter(config, manager);
+
+      const { status } = await callParamRoute(
+        router, "GET", "/mcp/:serverId/auth/url",
+        { serverId: "http_server" }
+      );
+
+      assert.equal(status, 404);
+    });
+
+    it("returns 404 for stdio server", async () => {
+      const config = makeConfig();
+      const manager = makeMcpManager();
+      const router = createMcpRouter(config, manager);
+
+      const { status } = await callParamRoute(
+        router, "GET", "/mcp/:serverId/auth/url",
+        { serverId: "stdio_server" }
+      );
+
+      assert.equal(status, 404);
+    });
+
+    it("calls prepareOAuthFlow and returns 200 { authUrl } for valid OAuth server", async () => {
+      const config = makeConfig({
+        oauth_server: { type: "http", url: "http://mcp.example.com", oauth: true },
+      });
+      const prepareCalledWith: { serverId: string; serverUrl: string; port: number }[] = [];
+      const manager = makeMcpManager({
+        prepareOAuthFlow: async (serverId: string, serverUrl: string, port: number) => {
+          prepareCalledWith.push({ serverId, serverUrl, port });
+          return "https://auth.example.com/authorize?client_id=abc";
+        },
+      });
+      const router = createMcpRouter(config, manager);
+
+      const { status, json } = await callParamRoute(
+        router, "GET", "/mcp/:serverId/auth/url",
+        { serverId: "oauth_server" },
+        { host: "localhost:3000" }
+      );
+
+      assert.equal(status, 200);
+      assert.deepEqual(json, { authUrl: "https://auth.example.com/authorize?client_id=abc" });
+      assert.equal(prepareCalledWith.length, 1);
+      assert.equal(prepareCalledWith[0]!.serverId, "oauth_server");
+      assert.equal(prepareCalledWith[0]!.serverUrl, "http://mcp.example.com");
+      assert.equal(prepareCalledWith[0]!.port, 3000);
+    });
+
+    it("returns 500 when prepareOAuthFlow throws", async () => {
+      const config = makeConfig({
+        oauth_server: { type: "http", url: "http://mcp.example.com", oauth: true },
+      });
+      const manager = makeMcpManager({
+        prepareOAuthFlow: async () => {
+          throw new Error("Discovery failed");
+        },
+      });
+      const router = createMcpRouter(config, manager);
+
+      const { status, json } = await callParamRoute(
+        router, "GET", "/mcp/:serverId/auth/url",
+        { serverId: "oauth_server" }
+      );
+
+      assert.equal(status, 500);
+      assert.ok((json as { error: string }).error.includes("Discovery failed"));
+    });
+  });
 });
