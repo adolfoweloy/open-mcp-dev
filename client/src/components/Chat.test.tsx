@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe("Chat", () => {
   it("renders textarea and Send button", () => {
-    mockUseChat.mockReturnValue(makeDefaultUseChat() as ReturnType<typeof useChat>);
+    mockUseChat.mockReturnValue(makeDefaultUseChat() as unknown as ReturnType<typeof useChat>);
     render(
       <Chat
         conversation={conversation}
@@ -55,7 +55,7 @@ describe("Chat", () => {
 
   it("textarea is disabled while loading", () => {
     mockUseChat.mockReturnValue(
-      makeDefaultUseChat({ isLoading: true }) as ReturnType<typeof useChat>
+      makeDefaultUseChat({ isLoading: true }) as unknown as ReturnType<typeof useChat>
     );
     render(
       <Chat
@@ -72,7 +72,7 @@ describe("Chat", () => {
     const handleSubmit = vi.fn();
     const handleInputChange = vi.fn();
     mockUseChat.mockReturnValue(
-      makeDefaultUseChat({ handleSubmit, handleInputChange, input: "hello" }) as ReturnType<
+      makeDefaultUseChat({ handleSubmit, handleInputChange, input: "hello" }) as unknown as ReturnType<
         typeof useChat
       >
     );
@@ -99,7 +99,7 @@ describe("Chat", () => {
 
   it("streaming error shown inline in message thread", () => {
     mockUseChat.mockReturnValue(
-      makeDefaultUseChat({ error: new Error("stream failed") }) as ReturnType<
+      makeDefaultUseChat({ error: new Error("stream failed") }) as unknown as ReturnType<
         typeof useChat
       >
     );
@@ -126,7 +126,7 @@ describe("Chat", () => {
             parts: [{ type: "text", text: "Hello" }],
           },
         ],
-      }) as ReturnType<typeof useChat>
+      }) as unknown as ReturnType<typeof useChat>
     );
 
     render(
@@ -144,7 +144,7 @@ describe("Chat", () => {
   });
 
   it("model and selectedServers passed to useChat body", () => {
-    mockUseChat.mockReturnValue(makeDefaultUseChat() as ReturnType<typeof useChat>);
+    mockUseChat.mockReturnValue(makeDefaultUseChat() as unknown as ReturnType<typeof useChat>);
     const model = { provider: "ollama" as const, id: "llama3" };
     const selectedServers = ["server-a", "server-b"];
 
