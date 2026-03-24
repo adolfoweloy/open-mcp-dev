@@ -10,6 +10,44 @@ export function createMcpRouter(config: Config, mcpManager: MCPClientManager) {
     res.json(statuses);
   });
 
+  router.post("/mcp/:serverId/connect", async (req, res) => {
+    const { serverId } = req.params;
+    const serverConfig = config.mcp_servers[serverId];
+
+    if (!serverConfig) {
+      res.status(404).json({ error: `Server "${serverId}" not found in config` });
+      return;
+    }
+
+    if (mcpManager.isConnected(serverId)) {
+      res.status(200).json({ status: "connected" });
+      return;
+    }
+
+    if (serverConfig.type === "http" && serverConfig.oauth) {
+      const host = req.get("host") || "localhost:3000";
+      const port = host.includes(":") ? parseInt(host.split(":")[1], 10) : 3000;
+      try {
+        const authUrl = await mcpManager.prepareOAuthFlow(
+          serverId,
+          serverConfig.url,
+          port
+        );
+        res.status(202).json({ status: "auth_required", authUrl });
+      } catch (err) {
+        res.status(500).json({ error: (err as Error).message });
+      }
+      return;
+    }
+
+    try {
+      await mcpManager.connectToServer(serverId, serverConfig);
+      res.status(200).json({ status: "connected" });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   router.post("/mcp/connect", async (req, res) => {
     const { serverId } = req.body as { serverId: string };
     const serverConfig = config.mcp_servers[serverId];
