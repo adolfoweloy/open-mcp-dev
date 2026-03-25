@@ -1,6 +1,6 @@
 id: bugs__missing-config-unfriendly-error
 overview: Detect missing config.yaml (ENOENT) and show an actionable error message telling the user to copy config.example.yaml
-status: todo
+status: done
 tasks:
   - task: >
       In server/config.ts loadConfig(), update the catch block (lines 44-47) to check
@@ -11,7 +11,7 @@ tasks:
     refs:
       - specs/bugs/missing-config-unfriendly-error/design.md
       - specs/bugs/missing-config-unfriendly-error/requirements.md
-    status: todo
+    status: done
   - task: >
       In server/config.test.ts, update the existing test "throws when config.yaml is missing"
       to assert the error message contains 'copy config.example.yaml to config.yaml' instead of
@@ -23,4 +23,4 @@ tasks:
     refs:
       - specs/bugs/missing-config-unfriendly-error/requirements.md
       - specs/bugs/missing-config-unfriendly-error/design.md
-    status: todo
+    status: done
