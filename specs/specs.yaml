@@ -28,3 +28,9 @@ specs:
     feature: config-not-found-wrong-cwd
     description: loadConfig() fails when CWD is not the project root (e.g. npm run dev:server)
     status: todo
+
+  - id: bugs__model-change-infinite-render-loop
+    domain: bugs
+    feature: model-change-infinite-render-loop
+    description: Changing model triggers infinite render loop when switching/creating conversations
+    status: todo
