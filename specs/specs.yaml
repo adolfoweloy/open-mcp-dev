@@ -32,5 +32,5 @@ specs:
   - id: bugs__model-change-infinite-render-loop
     domain: bugs
     feature: model-change-infinite-render-loop
-    description: Changing model triggers infinite render loop when switching/creating conversations
+    description: Infinite render loop when switching or creating conversations
     status: todo
