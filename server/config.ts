@@ -1,6 +1,9 @@
 import { readFileSync } from "fs";
+import { resolve } from "path";
 import { load } from "js-yaml";
 import type { ModelSelection } from "../shared/types.js";
+
+const DEFAULT_CONFIG_PATH = resolve(import.meta.dirname, "..", "config.yaml");
 
 export type McpServerConfig =
   | {
@@ -37,7 +40,7 @@ export interface Config {
   mcp_servers: Record<string, McpServerConfig>;
 }
 
-export function loadConfig(path = "config.yaml"): Config {
+export function loadConfig(path = DEFAULT_CONFIG_PATH): Config {
   let raw: string;
   try {
     raw = readFileSync(path, "utf-8");

@@ -164,6 +164,31 @@ llm:
     assert.equal(servers["my-stdio-server"].command, "npx");
   });
 
+  it("default path resolves relative to project root, not CWD", () => {
+    const originalCwd = process.cwd();
+    // Create a temp dir with no config.yaml - if loadConfig resolved against CWD,
+    // it would fail to find config.yaml. Instead, it should resolve against the
+    // project root (one level above server/).
+    const tempDir = mkdtempSync(join(tmpdir(), "mcp-cwd-test-"));
+    try {
+      process.chdir(tempDir);
+      // If config.yaml exists at the project root, this should succeed.
+      // If it doesn't exist, the error path should reference the project root, not tempDir.
+      try {
+        const config = loadConfig();
+        // Success means it found config.yaml at the project root, not in tempDir
+        assert.ok(config, "loadConfig() should succeed using project-root config.yaml");
+      } catch (err) {
+        // If it throws, the path in the error should be the project-root path, not tempDir
+        const msg = (err as Error).message;
+        assert.ok(!msg.includes(tempDir), `error path should not reference tempDir: ${msg}`);
+        assert.ok(msg.includes("/config.yaml"), "error should reference /config.yaml");
+      }
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   it("loads config with optional fields absent from openai/ollama", () => {
     const file = withTempFile(`
 llm:
