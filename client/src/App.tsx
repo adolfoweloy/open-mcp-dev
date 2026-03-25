@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { UIMessage } from "./lib/types";
 import type { Conversation, ModelSelection } from "./lib/types";
 import {
@@ -23,8 +23,13 @@ export function App() {
   const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
 
-  const activeConversation =
-    conversations.find((c) => c.id === activeConversationId) ?? null;
+  const activeConversationRef = useRef<Conversation | null>(null);
+
+  if (activeConversationRef.current?.id !== activeConversationId) {
+    activeConversationRef.current =
+      conversations.find((c) => c.id === activeConversationId) ?? null;
+  }
+  const activeConversation = activeConversationRef.current;
 
   function createNewConversation() {
     const newConv: Conversation = {

@@ -60,8 +60,18 @@ export function Chat({
   const appendRef = useRef(append);
   appendRef.current = append;
 
-  // Notify parent on every message change
+  // Notify parent on every message change (guarded to avoid redundant updates)
+  const prevMessagesRef = useRef<UIMessage[]>([]);
   useEffect(() => {
+    const prev = prevMessagesRef.current;
+    if (
+      messages.length === prev.length &&
+      (messages.length === 0 ||
+        messages[messages.length - 1]?.id === prev[prev.length - 1]?.id)
+    ) {
+      return;
+    }
+    prevMessagesRef.current = messages as UIMessage[];
     onMessagesChange(messages as UIMessage[]);
   }, [messages, onMessagesChange]);
 

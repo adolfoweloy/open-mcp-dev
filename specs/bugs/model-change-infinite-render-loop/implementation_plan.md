@@ -1,6 +1,6 @@
 id: bugs__model-change-infinite-render-loop
 overview: Break the infinite render loop caused by unstable activeConversation references on conversation switch/creation
-status: todo
+status: done
 tasks:
   - task: >
       In client/src/App.tsx, stabilise the activeConversation derivation to prevent
@@ -18,7 +18,7 @@ tasks:
       - specs/bugs/model-change-infinite-render-loop/design.md
       - specs/bugs/model-change-infinite-render-loop/requirements.md
     priority: high
-    status: todo
+    status: done
   - task: >
       In client/src/components/Chat.tsx, guard the messages-sync useEffect (lines 64-66)
       to only call onMessagesChange when messages have meaningfully changed. Add a
@@ -33,7 +33,7 @@ tasks:
       - specs/bugs/model-change-infinite-render-loop/design.md
       - specs/bugs/model-change-infinite-render-loop/requirements.md
     priority: high
-    status: todo
+    status: done
   - task: >
       Run existing test suites for client/src/App.test.tsx and
       client/src/components/Chat.test.tsx to verify no regressions. All existing
@@ -42,4 +42,4 @@ tasks:
     refs:
       - specs/bugs/model-change-infinite-render-loop/requirements.md
     priority: high
-    status: todo
+    status: done
