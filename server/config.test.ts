@@ -1,8 +1,9 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync, unlinkSync, mkdtempSync } from "fs";
-import { join } from "path";
+import { readFileSync, writeFileSync, unlinkSync, mkdtempSync } from "fs";
+import { join, resolve } from "path";
 import { tmpdir } from "os";
+import { load } from "js-yaml";
 import { loadConfig, getSystemPrompt } from "./config.js";
 import type { ModelSelection } from "../shared/types.js";
 
@@ -124,6 +125,43 @@ llm:
         return true;
       }
     );
+  });
+
+  it("config.example.yaml parses with empty mcp_servers", () => {
+    const examplePath = resolve(import.meta.dirname, "..", "config.example.yaml");
+    const raw = readFileSync(examplePath, "utf-8");
+    const parsed = load(raw) as Record<string, unknown>;
+    const servers = parsed.mcp_servers;
+    assert.ok(
+      servers === null || servers === undefined || (typeof servers === "object" && Object.keys(servers as object).length === 0),
+      `Expected mcp_servers to be empty, got: ${JSON.stringify(servers)}`
+    );
+  });
+
+  it("config.example.yaml: uncommenting stdio server block produces valid YAML", () => {
+    const examplePath = resolve(import.meta.dirname, "..", "config.example.yaml");
+    const raw = readFileSync(examplePath, "utf-8");
+    const lines = raw.split("\n");
+    let inStdioBlock = false;
+    const uncommented = lines.map((line) => {
+      if (line.includes("# Example: stdio MCP server")) {
+        inStdioBlock = true;
+        return line;
+      }
+      if (line.includes("# Example: HTTP")) {
+        inStdioBlock = false;
+        return line;
+      }
+      if (inStdioBlock && line.startsWith("  # ")) {
+        return line.replace(/^  # /, "  ");
+      }
+      return line;
+    }).join("\n");
+    const parsed = load(uncommented) as Record<string, unknown>;
+    const servers = parsed.mcp_servers as Record<string, Record<string, unknown>>;
+    assert.ok(servers["my-stdio-server"], "my-stdio-server should exist");
+    assert.equal(servers["my-stdio-server"].type, "stdio");
+    assert.equal(servers["my-stdio-server"].command, "npx");
   });
 
   it("loads config with optional fields absent from openai/ollama", () => {
