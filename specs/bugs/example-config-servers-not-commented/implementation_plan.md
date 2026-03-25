@@ -1,6 +1,6 @@
 id: bugs__example-config-servers-not-commented
 overview: Comment out example MCP server entries in config.example.yaml so copying the file produces a config with zero active servers
-status: todo
+status: done
 tasks:
   - task: >
       In config.example.yaml, comment out all YAML key-value lines for the three example
@@ -14,7 +14,7 @@ tasks:
     refs:
       - specs/bugs/example-config-servers-not-commented/design.md
       - specs/bugs/example-config-servers-not-commented/requirements.md
-    status: todo
+    status: done
   - task: >
       Test the config.example.yaml fix: parse config.example.yaml with js-yaml and assert
       that the mcp_servers key is either null, undefined, or an empty object ({}). Also
@@ -24,4 +24,4 @@ tasks:
     refs:
       - specs/bugs/example-config-servers-not-commented/requirements.md
       - specs/bugs/example-config-servers-not-commented/design.md
-    status: todo
+    status: done

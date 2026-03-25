@@ -1,6 +1,6 @@
 id: bugs__config-not-found-wrong-cwd
 overview: Anchor the default config.yaml path to the project root using import.meta.dirname so loadConfig() works regardless of CWD
-status: todo
+status: done
 tasks:
   - task: >
       In server/config.ts, add `import { resolve } from "path"` to the imports.
@@ -14,7 +14,7 @@ tasks:
     refs:
       - specs/bugs/config-not-found-wrong-cwd/design.md
       - specs/bugs/config-not-found-wrong-cwd/requirements.md
-    status: todo
+    status: done
   - task: >
       In server/config.test.ts, add a test "default path resolves relative to
       project root, not CWD" that verifies loadConfig() without arguments does NOT
@@ -29,4 +29,4 @@ tasks:
     refs:
       - specs/bugs/config-not-found-wrong-cwd/requirements.md
       - specs/bugs/config-not-found-wrong-cwd/design.md
-    status: todo
+    status: done
