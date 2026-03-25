@@ -97,7 +97,19 @@ llm:
     assert.throws(
       () => loadConfig("/nonexistent/path/config.yaml"),
       (err: Error) => {
+        assert.ok(err.message.includes("copy config.example.yaml to config.yaml"));
+        return true;
+      }
+    );
+  });
+
+  it("throws generic error for non-ENOENT read failures", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mcp-config-test-"));
+    assert.throws(
+      () => loadConfig(dir),
+      (err: Error) => {
         assert.ok(err.message.includes("Failed to read config file"));
+        assert.ok(!err.message.includes("copy config.example.yaml"));
         return true;
       }
     );

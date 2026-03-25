@@ -42,6 +42,11 @@ export function loadConfig(path = "config.yaml"): Config {
   try {
     raw = readFileSync(path, "utf-8");
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(
+        `Config file "${path}" not found. To get started, copy config.example.yaml to config.yaml and customize it.`
+      );
+    }
     throw new Error(
       `Failed to read config file "${path}": ${(err as NodeJS.ErrnoException).message}`
     );
