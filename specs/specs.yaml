@@ -22,3 +22,9 @@ specs:
     feature: example-config-servers-not-commented
     description: Example MCP servers in config.example.yaml are not commented out
     status: todo
+
+  - id: bugs__config-not-found-wrong-cwd
+    domain: bugs
+    feature: config-not-found-wrong-cwd
+    description: loadConfig() fails when CWD is not the project root (e.g. npm run dev:server)
+    status: todo
