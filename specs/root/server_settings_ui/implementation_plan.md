@@ -4,7 +4,7 @@ overview: >
   Backend: ConfigWriter service for serialised config.yaml writes, MCPClientManager CRUD methods
   for hot-reload, REST endpoints under /api/config/servers with sensitive-field scrubbing.
   Frontend: gear button, slide-over drawer, server form modal.
-status: wip
+status: done
 acceptance_criteria:
   - GET /api/config/servers returns all configured servers with sensitive fields (client_secret, access_token, refresh_token) replaced by boolean presence flags — never raw values
   - POST /api/config/servers creates a new server entry in config.yaml and hot-connects it; the server appears in the drawer with a connecting/connected status badge
@@ -223,7 +223,7 @@ tasks:
       - specs/root/server_settings_ui/design.md
       - specs/root/server_settings_ui/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test gear button: (a) renders in sidebar, (b) clicking toggles settings drawer
@@ -231,4 +231,4 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: medium
-    status: todo
+    status: done

@@ -22,8 +22,13 @@ vi.mock("./lib/api", () => ({
     { provider: "openai", id: "gpt-4o", label: "GPT-4o" },
   ]),
   fetchServers: vi.fn().mockResolvedValue([]),
+  fetchServerConfigs: vi.fn().mockResolvedValue({}),
   connectServer: vi.fn(),
   disconnectServer: vi.fn(),
+  startOAuthConnect: vi.fn(),
+  deleteServer: vi.fn(),
+  addServer: vi.fn(),
+  updateServer: vi.fn(),
 }));
 
 // Mock useChat to avoid real HTTP requests
@@ -111,6 +116,22 @@ describe("App", () => {
     // ModelSelector fetches models and renders a select
     await waitFor(() => {
       expect(screen.getByRole("combobox")).toBeInTheDocument();
+    });
+  });
+
+  describe("gear button", () => {
+    it("renders a gear button in the sidebar", () => {
+      render(<App />);
+      expect(screen.getByRole("button", { name: "Open settings" })).toBeInTheDocument();
+    });
+
+    it("clicking the gear button opens the settings drawer", async () => {
+      render(<App />);
+      expect(screen.queryByRole("button", { name: "Close settings" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Close settings" })).toBeInTheDocument();
+      });
     });
   });
 

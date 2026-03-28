@@ -7,16 +7,20 @@ const POLL_INTERVAL_MS = 5000;
 interface Props {
   selectedServers: string[];
   onToggle: (serverId: string) => void;
+  onServersUpdate?: (servers: McpServerStatus[]) => void;
 }
 
-export function ServerSidebar({ selectedServers, onToggle }: Props) {
+export function ServerSidebar({ selectedServers, onToggle, onServersUpdate }: Props) {
   const [servers, setServers] = useState<McpServerStatus[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onServersUpdateRef = useRef(onServersUpdate);
+  onServersUpdateRef.current = onServersUpdate;
 
   async function loadServers() {
     try {
       const list = await fetchServers();
       setServers(list);
+      onServersUpdateRef.current?.(list);
     } catch (err) {
       console.error("[ServerSidebar] Failed to fetch servers", err);
     }

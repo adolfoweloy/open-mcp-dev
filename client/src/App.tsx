@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { UIMessage } from "./lib/types";
+import type { UIMessage, McpServerStatus } from "./lib/types";
 import type { Conversation, ModelSelection } from "./lib/types";
 import {
   loadConversations,
@@ -9,6 +9,8 @@ import {
 } from "./lib/storage";
 import { ModelSelector } from "./components/ModelSelector";
 import { ServerSidebar } from "./components/ServerSidebar";
+import { SettingsDrawer } from "./components/SettingsDrawer";
+import { ServerFormModal } from "./components/ServerFormModal";
 import { Chat } from "./components/Chat";
 import { ConversationItem } from "./components/ConversationItem";
 
@@ -31,6 +33,10 @@ export function App() {
   >(() => loadActiveId());
   const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
   const [selectedServers, setSelectedServers] = useState<string[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
+  const [editServerId, setEditServerId] = useState<string | undefined>(undefined);
+  const [servers, setServers] = useState<McpServerStatus[]>([]);
 
   const activeConversationRef = useRef<Conversation | null>(null);
 
@@ -117,6 +123,25 @@ export function App() {
     );
   }
 
+  function handleServersUpdate(updated: McpServerStatus[]) {
+    setServers(updated);
+  }
+
+  function handleRequestAddServer() {
+    setEditServerId(undefined);
+    setFormMode("add");
+  }
+
+  function handleRequestEditServer(id: string) {
+    setEditServerId(id);
+    setFormMode("edit");
+  }
+
+  function handleFormClose() {
+    setFormMode(null);
+    setEditServerId(undefined);
+  }
+
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       {/* Left panel */}
@@ -153,8 +178,47 @@ export function App() {
         <ServerSidebar
           selectedServers={selectedServers}
           onToggle={handleToggleServer}
+          onServersUpdate={handleServersUpdate}
         />
+        <div style={{ padding: "8px", borderTop: "1px solid #ddd" }}>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            aria-label="Open settings"
+            title="Server settings"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "6px",
+              borderRadius: "4px",
+              lineHeight: 1,
+              fontSize: "18px",
+              color: "#555",
+            }}
+          >
+            ⚙
+          </button>
+        </div>
       </div>
+
+      <SettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        servers={servers}
+        onRequestAddServer={handleRequestAddServer}
+        onRequestEditServer={handleRequestEditServer}
+        onServersChanged={() => {}}
+      />
+      {formMode !== null && (
+        <ServerFormModal
+          mode={formMode}
+          serverId={editServerId}
+          onClose={handleFormClose}
+          onSaved={() => {
+            handleFormClose();
+          }}
+        />
+      )}
 
       {/* Main area */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
