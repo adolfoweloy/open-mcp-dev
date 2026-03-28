@@ -41,6 +41,7 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 
 - No database or server-side persistence
 - Conversation history stored in `localStorage` (key `mcp-chat:conversations`), max 50 conversations
+- `Conversation` type includes `isUserRenamed?: boolean` (defaults to `false` when absent) — controls whether auto-title derivation in `handleMessagesChange` is skipped
 - OAuth tokens in-memory `Map` on the server process
 
 ## MCP Transport
@@ -54,6 +55,12 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 - MCP resource iframes communicate with the host via JSON-RPC 2.0 `postMessage`
 - Host injects a `window.openai` shim; supports `requestDisplayMode`, `ui/message`, `tools/call`, `ui/notifications/tool-result`, `ui/update-model-context`
 - MCP apps built for ChatGPT work unmodified
+
+## Dropdown / Overlay Rendering
+
+- Sidebar dropdowns (e.g. conversation meatball menu) must be rendered via `ReactDOM.createPortal` into `document.body` to escape `overflow: hidden` sidebar containment
+- Position using `getBoundingClientRect` on the trigger element; `position: fixed` on the portal element
+- Close on `mousedown` outside (not `click`) to ensure correct event ordering before sibling `onClick` handlers
 
 ## Error Handling
 
