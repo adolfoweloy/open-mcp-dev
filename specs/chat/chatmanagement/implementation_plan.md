@@ -2,7 +2,7 @@ id: chat__chatmanagement
 overview: >
   Fix conversation isolation (shared message store bug) and add rename/delete
   actions via per-item meatball menu in the sidebar. All changes are client-side.
-status: todo
+status: done
 tasks:
   # --- HIGH PRIORITY: Core isolation fix and data model ---
 
