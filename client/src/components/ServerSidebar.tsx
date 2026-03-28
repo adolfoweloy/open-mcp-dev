@@ -5,13 +5,26 @@ import type { McpServerStatus } from "../lib/types";
 const POLL_INTERVAL_MS = 5000;
 
 interface Props {
-  selectedServers: string[];
+  servers?: McpServerStatus[];
+  enabledServers?: string[];
+  /** @deprecated use enabledServers */
+  selectedServers?: string[];
   onToggle: (serverId: string) => void;
   onServersUpdate?: (servers: McpServerStatus[]) => void;
+  onOpenSettings?: () => void;
 }
 
-export function ServerSidebar({ selectedServers, onToggle, onServersUpdate }: Props) {
-  const [servers, setServers] = useState<McpServerStatus[]>([]);
+export function ServerSidebar({
+  servers: serversProp,
+  enabledServers,
+  selectedServers,
+  onToggle,
+  onServersUpdate,
+  onOpenSettings,
+}: Props) {
+  const [serversState, setServersState] = useState<McpServerStatus[]>([]);
+  const servers = serversProp ?? serversState;
+  const checkedServers = enabledServers ?? selectedServers ?? [];
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const onServersUpdateRef = useRef(onServersUpdate);
   onServersUpdateRef.current = onServersUpdate;
@@ -19,7 +32,7 @@ export function ServerSidebar({ selectedServers, onToggle, onServersUpdate }: Pr
   async function loadServers() {
     try {
       const list = await fetchServers();
-      setServers(list);
+      setServersState(list);
       onServersUpdateRef.current?.(list);
     } catch (err) {
       console.error("[ServerSidebar] Failed to fetch servers", err);
@@ -87,7 +100,7 @@ export function ServerSidebar({ selectedServers, onToggle, onServersUpdate }: Pr
             <label>
               <input
                 type="checkbox"
-                checked={selectedServers.includes(server.id)}
+                checked={checkedServers.includes(server.id)}
                 onChange={() => onToggle(server.id)}
               />
               <span
@@ -115,6 +128,16 @@ export function ServerSidebar({ selectedServers, onToggle, onServersUpdate }: Pr
           </li>
         ))}
       </ul>
+      {onOpenSettings && (
+        <div style={{ padding: "8px", borderTop: "1px solid #ddd" }}>
+          <button
+            onClick={onOpenSettings}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#555", padding: "4px 0" }}
+          >
+            Settings
+          </button>
+        </div>
+      )}
     </div>
   );
 }

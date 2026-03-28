@@ -10,6 +10,7 @@ interface Props {
   conversation: Conversation | null;
   model: ModelSelection | null;
   selectedServers: string[];
+  disabledServers?: string[];
   onMessagesChange: (messages: UIMessage[]) => void;
 }
 
@@ -17,6 +18,7 @@ export function Chat({
   conversation,
   model,
   selectedServers,
+  disabledServers = [],
   onMessagesChange,
 }: Props) {
   const [oauthBannerServerId, setOauthBannerServerId] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export function Chat({
     body: {
       model,
       selectedServers,
+      disabledServers,
     },
   });
 

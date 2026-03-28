@@ -68,7 +68,7 @@ tasks:
       - specs/servers/management/design.md
       - specs/servers/management/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test App enabledServers wiring: (1) new conversation defaults enabledServers to all

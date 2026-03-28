@@ -32,7 +32,6 @@ export function App() {
     string | null
   >(() => loadActiveId());
   const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
-  const [selectedServers, setSelectedServers] = useState<string[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editServerId, setEditServerId] = useState<string | undefined>(undefined);
@@ -115,12 +114,27 @@ export function App() {
     [activeConversationId]
   );
 
+  const enabledServers: string[] =
+    activeConversation?.enabledServers ?? servers.filter((s) => s.connected).map((s) => s.id);
+
+  const disabledServers: string[] = servers
+    .filter((s) => s.connected && !enabledServers.includes(s.id))
+    .map((s) => s.id);
+
   function handleToggleServer(serverId: string) {
-    setSelectedServers((prev) =>
-      prev.includes(serverId)
-        ? prev.filter((id) => id !== serverId)
-        : [...prev, serverId]
-    );
+    if (!activeConversationId) return;
+    const current =
+      activeConversation?.enabledServers ?? servers.filter((s) => s.connected).map((s) => s.id);
+    const updated = current.includes(serverId)
+      ? current.filter((id) => id !== serverId)
+      : [...current, serverId];
+    setConversations((prev) => {
+      const result = prev.map((c) =>
+        c.id === activeConversationId ? { ...c, enabledServers: updated } : c
+      );
+      saveConversations(result);
+      return result;
+    });
   }
 
   function handleServersUpdate(updated: McpServerStatus[]) {
@@ -176,29 +190,12 @@ export function App() {
         </ul>
 
         <ServerSidebar
-          selectedServers={selectedServers}
+          servers={servers}
+          enabledServers={enabledServers}
           onToggle={handleToggleServer}
           onServersUpdate={handleServersUpdate}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
-        <div style={{ padding: "8px", borderTop: "1px solid #ddd" }}>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            aria-label="Open settings"
-            title="Server settings"
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "6px",
-              borderRadius: "4px",
-              lineHeight: 1,
-              fontSize: "18px",
-              color: "#555",
-            }}
-          >
-            ⚙
-          </button>
-        </div>
       </div>
 
       <SettingsDrawer
@@ -231,7 +228,8 @@ export function App() {
             key={activeConversation.id}
             conversation={activeConversation}
             model={selectedModel}
-            selectedServers={selectedServers}
+            selectedServers={enabledServers}
+            disabledServers={disabledServers}
             onMessagesChange={handleMessagesChange}
           />
         ) : (

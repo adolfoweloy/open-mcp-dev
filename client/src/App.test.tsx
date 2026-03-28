@@ -119,16 +119,16 @@ describe("App", () => {
     });
   });
 
-  describe("gear button", () => {
-    it("renders a gear button in the sidebar", () => {
+  describe("settings link", () => {
+    it("renders a Settings link in the sidebar", () => {
       render(<App />);
-      expect(screen.getByRole("button", { name: "Open settings" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
     });
 
-    it("clicking the gear button opens the settings drawer", async () => {
+    it("clicking the Settings link opens the settings drawer", async () => {
       render(<App />);
       expect(screen.queryByRole("button", { name: "Close settings" })).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+      fireEvent.click(screen.getByRole("button", { name: "Settings" }));
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Close settings" })).toBeInTheDocument();
       });
