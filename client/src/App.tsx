@@ -57,6 +57,21 @@ export function App() {
     saveActiveId(id);
   }
 
+  function deleteConversation(id: string) {
+    let nextId: string | null = null;
+    setConversations((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
+      saveConversations(updated);
+      nextId = updated[0]?.id ?? null;
+      return updated;
+    });
+    setActiveConversationId((currentId) => {
+      if (currentId !== id) return currentId;
+      saveActiveId(nextId);
+      return nextId;
+    });
+  }
+
   const handleMessagesChange = useCallback(
     (messages: UIMessage[]) => {
       if (!activeConversationId) return;

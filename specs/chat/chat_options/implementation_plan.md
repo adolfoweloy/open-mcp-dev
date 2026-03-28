@@ -64,7 +64,7 @@ tasks:
       - specs/chat/chat_options/design.md
       - specs/chat/chat_options/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test deleteConversation: (1) deleting a non-active conversation removes it from
