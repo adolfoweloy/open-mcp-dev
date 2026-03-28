@@ -173,6 +173,46 @@ describe("Chat", () => {
     );
   });
 
+  it("disabledServers is included in useChat body", () => {
+    mockUseChat.mockReturnValue(makeDefaultUseChat() as unknown as ReturnType<typeof useChat>);
+    const disabledServers = ["server-b", "server-c"];
+
+    render(
+      <Chat
+        conversation={conversation}
+        model={{ provider: "openai", id: "gpt-4o" }}
+        selectedServers={["server-a", "server-b", "server-c"]}
+        disabledServers={disabledServers}
+        onMessagesChange={() => {}}
+      />
+    );
+
+    expect(mockUseChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({ disabledServers }),
+      })
+    );
+  });
+
+  it("disabledServers defaults to empty array when not provided", () => {
+    mockUseChat.mockReturnValue(makeDefaultUseChat() as unknown as ReturnType<typeof useChat>);
+
+    render(
+      <Chat
+        conversation={conversation}
+        model={{ provider: "openai", id: "gpt-4o" }}
+        selectedServers={[]}
+        onMessagesChange={() => {}}
+      />
+    );
+
+    expect(mockUseChat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.objectContaining({ disabledServers: [] }),
+      })
+    );
+  });
+
   it("no banner shown when no auth_required data part received", () => {
     mockUseChat.mockReturnValue(
       makeDefaultUseChat({ data: [] }) as unknown as ReturnType<typeof useChat>

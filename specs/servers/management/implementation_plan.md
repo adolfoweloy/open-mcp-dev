@@ -88,7 +88,7 @@ tasks:
     refs:
       - specs/servers/management/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test Chat component: verify that disabledServers is included in the useChat body and
@@ -96,7 +96,7 @@ tasks:
     refs:
       - specs/servers/management/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- ServerSidebar refactor ---
   - task: >
