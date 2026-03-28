@@ -101,7 +101,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- Frontend event ingestion (Chat.tsx) ---
   - task: >

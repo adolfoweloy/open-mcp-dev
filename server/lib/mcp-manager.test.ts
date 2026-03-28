@@ -1309,4 +1309,253 @@ describe("MCPClientManager", () => {
       });
     });
   });
+
+  describe("getToolsForAiSdk — debug event emission", () => {
+    it("(2) tool call emits mcp-client debug event before execution", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "do_work", result: { ok: true } },
+      ]);
+      await manager.connectWithTransport("debug-srv", transport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["debug-srv"], emitEvent, []);
+      await tools["debug-srv__do_work"].execute!({ x: 1 }, { toolCallId: "tc-1" } as never);
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const toolCallEvent = debugEvents.find(
+        (e) => e.event?.actor === "mcp-client" && e.event?.type === "tool-call"
+      );
+      assert.ok(toolCallEvent, "should emit mcp-client tool-call debug event");
+      assert.ok(
+        (toolCallEvent.event.summary as string).includes("do_work"),
+        "summary should include tool name"
+      );
+      assert.equal(toolCallEvent.event.correlationId, "tc-1", "should include toolCallId as correlationId");
+    });
+
+    it("(2) tool call emits mcp-server debug event on success", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "fetch_data", result: { value: 42 } },
+      ]);
+      await manager.connectWithTransport("debug-srv2", transport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["debug-srv2"], emitEvent, []);
+      await tools["debug-srv2__fetch_data"].execute!({}, { toolCallId: "tc-2" } as never);
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const toolResultEvent = debugEvents.find(
+        (e) => e.event?.actor === "mcp-server" && e.event?.type === "tool-result"
+      );
+      assert.ok(toolResultEvent, "should emit mcp-server tool-result debug event");
+      assert.ok(
+        (toolResultEvent.event.summary as string).includes("fetch_data"),
+        "summary should include tool name"
+      );
+      assert.equal(toolResultEvent.event.correlationId, "tc-2", "should include toolCallId as correlationId");
+    });
+
+    it("(3) tool call error emits error debug event", async () => {
+      const manager = new MCPClientManager();
+      const [clientTransport, serverTransport] = (
+        await import("@modelcontextprotocol/sdk/inMemory.js")
+      ).InMemoryTransport.createLinkedPair();
+
+      // Server that always throws on callTool
+      const { Server } = await import("@modelcontextprotocol/sdk/server/index.js");
+      const { ListToolsRequestSchema, CallToolRequestSchema } = await import(
+        "@modelcontextprotocol/sdk/types.js"
+      );
+      const srv = new Server(
+        { name: "error-srv", version: "1.0.0" },
+        { capabilities: { tools: {} } }
+      );
+      srv.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: [
+          {
+            name: "boom",
+            description: "always fails",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+      }));
+      srv.setRequestHandler(CallToolRequestSchema, async () => {
+        throw new Error("tool exploded");
+      });
+      await srv.connect(serverTransport);
+      await manager.connectWithTransport("err-srv", clientTransport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["err-srv"], emitEvent, []);
+      await assert.rejects(
+        async () => { await tools["err-srv__boom"].execute!({}, { toolCallId: "tc-err" } as never); },
+        /tool exploded/
+      );
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const errorEvent = debugEvents.find(
+        (e) => e.event?.actor === "error" && e.event?.type === "tool-error"
+      );
+      assert.ok(errorEvent, "should emit error tool-error debug event on failure");
+      assert.ok(
+        (errorEvent.event.summary as string).includes("boom"),
+        "summary should include tool name"
+      );
+      assert.equal(errorEvent.event.correlationId, "tc-err", "should include toolCallId as correlationId");
+    });
+
+    it("(5) tool-call payload is serialised from args", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "search", result: {} },
+      ]);
+      await manager.connectWithTransport("payload-srv", transport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["payload-srv"], emitEvent, []);
+      await tools["payload-srv__search"].execute!({ query: "hello" }, {} as never);
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const callEvent = debugEvents.find(
+        (e) => e.event?.actor === "mcp-client" && e.event?.type === "tool-call"
+      );
+      assert.ok(callEvent, "mcp-client tool-call event should exist");
+      assert.ok(
+        typeof callEvent.event.payload === "string" &&
+          callEvent.event.payload.includes("hello"),
+        "payload should be serialised JSON containing the args"
+      );
+    });
+
+    it("(6) emitEvent throwing does not break tool execution", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "safe_tool", result: { value: 1 } },
+      ]);
+      await manager.connectWithTransport("safe-srv", transport);
+
+      // emitEvent that always throws
+      const throwingEmit = (_e: object) => { throw new Error("emit failed"); };
+
+      const tools = await manager.getToolsForAiSdk(["safe-srv"], throwingEmit, []);
+      // Should not throw even though emitEvent throws
+      const result = await tools["safe-srv__safe_tool"].execute!({}, {} as never);
+      assert.ok(result !== undefined, "tool should still return a result despite emit errors");
+    });
+  });
+
+  describe("callWithAuth — debug event emission", () => {
+    function make401Error() {
+      return Object.assign(new Error("Unauthorized"), { status: 401 });
+    }
+
+    it("(4) emits oauth-start debug event on first 401", async () => {
+      const manager = new TestMCPClientManager();
+      const events: object[] = [];
+
+      let firstCall = true;
+      const fn = async (): Promise<string> => {
+        if (firstCall) {
+          firstCall = false;
+          throw make401Error();
+        }
+        return "ok";
+      };
+
+      const promise = manager.callWithAuth("oauth-srv", fn, (e) => events.push(e));
+
+      // Allow microtasks to run so callWithAuth reaches the waiting state
+      await Promise.resolve();
+      await Promise.resolve();
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const oauthStartEvent = debugEvents.find(
+        (e) => e.event?.actor === "oauth" && e.event?.type === "oauth-start"
+      );
+      assert.ok(oauthStartEvent, "should emit oauth-start debug event on 401");
+      assert.ok(
+        (oauthStartEvent.event.summary as string).includes("oauth-srv"),
+        "summary should include server id"
+      );
+
+      // Resolve the lock to unblock the promise
+      const lock = (manager as unknown as { authLocks: Map<string, { inProgress: boolean; queue: Array<{ resolve: () => void; reject: (e: Error) => void }> }> }).authLocks.get("oauth-srv");
+      lock?.queue[0]?.resolve();
+      await promise;
+    });
+
+    it("(4) emits oauth-refresh debug event on proactive token refresh", async () => {
+      const manager = new TestMCPClientManager();
+      const events: object[] = [];
+
+      // Set an expiring token with a refresh token
+      const tokenSets = (manager as unknown as { tokenSets: Map<string, { accessToken: string; refreshToken?: string; expiresAt?: number }> }).tokenSets;
+      tokenSets.set("refresh-srv", {
+        accessToken: "old-token",
+        refreshToken: "refresh-token",
+        expiresAt: Date.now() + 30_000, // expires in 30s (< 60s threshold)
+      });
+
+      // Set an oauth client config so _tryRefreshToken can proceed
+      const oauthClients = (manager as unknown as { oauthClients: Map<string, { clientId: string; authorizationEndpoint: string; tokenEndpoint: string }> }).oauthClients;
+      oauthClients.set("refresh-srv", {
+        clientId: "client-id",
+        authorizationEndpoint: "https://example.com/auth",
+        tokenEndpoint: "https://example.com/token",
+      });
+
+      // Mock fetch to return a successful token refresh response
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = async () =>
+        new Response(
+          JSON.stringify({ access_token: "new-token", expires_in: 3600 }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+
+      try {
+        const fn = async () => "result";
+        await manager.callWithAuth("refresh-srv", fn, (e) => events.push(e));
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const refreshEvent = debugEvents.find(
+        (e) => e.event?.actor === "oauth" && e.event?.type === "oauth-refresh"
+      );
+      assert.ok(refreshEvent, "should emit oauth-refresh debug event on proactive token refresh");
+      assert.ok(
+        (refreshEvent.event.summary as string).includes("refresh-srv"),
+        "summary should include server id"
+      );
+    });
+  });
 });

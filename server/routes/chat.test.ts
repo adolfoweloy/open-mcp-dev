@@ -340,3 +340,159 @@ describe("chat route auth_required data stream events", () => {
     );
   });
 });
+
+// Helper: parse all 'debug' typed events from a Vercel AI SDK data stream output
+function extractDebugEvents(output: string): Array<{ type: string; event: Record<string, unknown> }> {
+  const result: Array<{ type: string; event: Record<string, unknown> }> = [];
+  for (const line of output.split('\n')) {
+    if (!line.startsWith('2:')) continue;
+    try {
+      const parsed = JSON.parse(line.slice(2));
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item === 'object' && item.type === 'debug') {
+            result.push(item as { type: string; event: Record<string, unknown> });
+          }
+        }
+      }
+    } catch {
+      // ignore malformed chunks
+    }
+  }
+  return result;
+}
+
+describe("chat route debug event emission", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    mock.restoreAll();
+  });
+
+  it("(1) emits LLM request debug event before streamText", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(makeOpenAiSseBody(), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+
+    const router = createChatRouter(baseConfig, makeMockManager());
+    const { chunks } = await runChatHandler(router, {
+      messages: [{ role: "user", content: "hello" }],
+      model: { provider: "openai", id: "gpt-4o" },
+      selectedServers: [],
+    });
+
+    const debugEvents = extractDebugEvents(chunks.join(""));
+    const requestEvents = debugEvents.filter(
+      (e) => e.event?.actor === "llm" && e.event?.type === "request"
+    );
+    assert.ok(
+      requestEvents.length >= 1,
+      `expected at least one LLM request debug event; got ${debugEvents.length} debug events total`
+    );
+  });
+
+  it("(1) emits LLM response debug event in onFinish", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(makeOpenAiSseBody("hello world"), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+
+    const router = createChatRouter(baseConfig, makeMockManager());
+    const { chunks } = await runChatHandler(router, {
+      messages: [{ role: "user", content: "hello" }],
+      model: { provider: "openai", id: "gpt-4o" },
+      selectedServers: [],
+    });
+
+    const debugEvents = extractDebugEvents(chunks.join(""));
+    const responseEvents = debugEvents.filter(
+      (e) => e.event?.actor === "llm" && e.event?.type === "response"
+    );
+    assert.ok(
+      responseEvents.length >= 1,
+      `expected at least one LLM response debug event; got debug events: ${JSON.stringify(debugEvents.map((e) => ({ actor: e.event?.actor, type: e.event?.type })))}`
+    );
+  });
+
+  it("(5) LLM request event payload contains model id", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(makeOpenAiSseBody(), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+
+    const router = createChatRouter(baseConfig, makeMockManager());
+    const { chunks } = await runChatHandler(router, {
+      messages: [{ role: "user", content: "ping" }],
+      model: { provider: "openai", id: "gpt-4o" },
+      selectedServers: [],
+    });
+
+    const debugEvents = extractDebugEvents(chunks.join(""));
+    const requestEvent = debugEvents.find(
+      (e) => e.event?.actor === "llm" && e.event?.type === "request"
+    );
+    assert.ok(requestEvent, "LLM request debug event should exist");
+    assert.equal(typeof requestEvent.event.payload, "string", "payload should be a string");
+    assert.ok(
+      (requestEvent.event.payload as string).includes("gpt-4o"),
+      "payload should include model id"
+    );
+  });
+
+  it("(6) chat stream completes normally even if debug emission has no side-effects", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(makeOpenAiSseBody("done"), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+
+    const router = createChatRouter(baseConfig, makeMockManager());
+    const { chunks, statusCode } = await runChatHandler(router, {
+      messages: [{ role: "user", content: "hi" }],
+      model: { provider: "openai", id: "gpt-4o" },
+      selectedServers: [],
+    });
+
+    assert.equal(statusCode, 200, "chat should complete with 200");
+    assert.ok(chunks.join("").length > 0, "stream should produce output");
+  });
+
+  it("(7) all debug events have type='debug' wrapper with nested event object", async () => {
+    globalThis.fetch = mock.fn(async () =>
+      new Response(makeOpenAiSseBody(), {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      })
+    );
+
+    const router = createChatRouter(baseConfig, makeMockManager());
+    const { chunks } = await runChatHandler(router, {
+      messages: [{ role: "user", content: "hello" }],
+      model: { provider: "openai", id: "gpt-4o" },
+      selectedServers: [],
+    });
+
+    const debugEvents = extractDebugEvents(chunks.join(""));
+    assert.ok(debugEvents.length > 0, "should have at least one debug event");
+    for (const e of debugEvents) {
+      assert.equal(e.type, "debug", "outer type must be 'debug'");
+      assert.ok(
+        e.event && typeof e.event === "object",
+        "must have nested event object"
+      );
+      assert.ok(typeof e.event.id === "string", "event.id must be a string");
+      assert.ok(typeof e.event.timestamp === "string", "event.timestamp must be an ISO string");
+      assert.ok(typeof e.event.actor === "string", "event.actor must be a string");
+      assert.ok(typeof e.event.type === "string", "event.type must be a string");
+    }
+  });
+});
