@@ -24,7 +24,7 @@ tasks:
     refs:
       - specs/chat/chat_options/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Update `handleMessagesChange` in `App.tsx` to guard against deleted conversations

@@ -136,6 +136,7 @@ export function App() {
 
         {activeConversation ? (
           <Chat
+            key={activeConversation.id}
             conversation={activeConversation}
             model={selectedModel}
             selectedServers={selectedServers}
