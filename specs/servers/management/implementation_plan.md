@@ -79,7 +79,7 @@ tasks:
     refs:
       - specs/servers/management/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- Chat.tsx disabledServers pass-through ---
   - task: >
