@@ -587,7 +587,8 @@ export class MCPClientManager {
 
   async getToolsForAiSdk(
     serverIds?: string[],
-    emitEvent?: (event: object) => void
+    emitEvent?: (event: object) => void,
+    disabledServers?: string[]
   ): Promise<ToolSet> {
     const ids = serverIds ?? Array.from(this.clients.keys());
     const toolSet: ToolSet = {};
@@ -627,6 +628,9 @@ export class MCPClientManager {
           description: tool.description ?? "",
           parameters: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
           execute: async (args: unknown) => {
+            if (disabledServers?.includes(serverId)) {
+              return { error: `Server '${serverId}' is disabled for this conversation.` };
+            }
             return this.callWithAuth(
               serverId,
               () =>

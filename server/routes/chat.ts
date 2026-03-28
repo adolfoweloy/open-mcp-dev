@@ -13,10 +13,11 @@ export function createChatRouter(
   const router = Router();
 
   router.post("/chat", async (req, res) => {
-    const { messages, model, selectedServers } = req.body as {
+    const { messages, model, selectedServers, disabledServers } = req.body as {
       messages: unknown[];
       model: ModelSelection;
       selectedServers: string[];
+      disabledServers?: string[];
     };
 
     let llm: ReturnType<typeof createModel>;
@@ -33,7 +34,7 @@ export function createChatRouter(
       pipeDataStreamToResponse(res, {
         execute: async (dataStreamWriter) => {
           const emitEvent = (event: object) => dataStreamWriter.writeData(event as Parameters<typeof dataStreamWriter.writeData>[0]);
-          const tools = await mcpManager.getToolsForAiSdk(selectedServers, emitEvent);
+          const tools = await mcpManager.getToolsForAiSdk(selectedServers, emitEvent, disabledServers ?? []);
 
           const result = streamText({
             model: llm,

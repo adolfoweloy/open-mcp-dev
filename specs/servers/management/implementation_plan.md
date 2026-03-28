@@ -42,7 +42,7 @@ tasks:
       - specs/servers/management/requirements.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test backend tool-call blocking: (1) tool call from an enabled server executes normally,
