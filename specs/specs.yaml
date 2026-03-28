@@ -51,4 +51,4 @@ specs:
     domain: chat
     feature: chat_options
     description: Rename (modal dialog) and delete (immediate) actions for conversations via per-item meatball menu; supersedes chat__chatmanagement
-    status: todo
+    status: done

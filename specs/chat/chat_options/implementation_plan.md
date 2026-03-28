@@ -3,7 +3,7 @@ overview: >
   Rename (modal dialog) and delete (immediate) actions for conversations via
   per-item meatball menu; conversation isolation fix via key-based remount;
   isUserRenamed flag to skip auto-titling. All changes client-side.
-status: todo
+status: done
 tasks:
   # --- HIGH PRIORITY: Data model and conversation isolation ---
 
@@ -117,7 +117,7 @@ tasks:
       - specs/chat/chat_options/design.md
       - specs/chat/chat_options/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Implement the meatball menu in `ConversationItem` as a portal dropdown. Render a
@@ -136,7 +136,7 @@ tasks:
       - specs/chat/chat_options/requirements.md
       - specs/architecture.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Implement the rename modal in `ConversationItem` as a portal overlay. When
@@ -154,7 +154,7 @@ tasks:
       - specs/chat/chat_options/design.md
       - specs/chat/chat_options/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Wire `ConversationItem` into `App.tsx`: replace the existing inline `<button>`
@@ -165,7 +165,7 @@ tasks:
     refs:
       - specs/chat/chat_options/design.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test ConversationItem: (1) renders title, calls onSelect on click; (2) meatball
@@ -180,4 +180,4 @@ tasks:
     refs:
       - specs/chat/chat_options/requirements.md
     priority: medium
-    status: todo
+    status: done

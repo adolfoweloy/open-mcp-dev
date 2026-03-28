@@ -10,6 +10,7 @@ import {
 import { ModelSelector } from "./components/ModelSelector";
 import { ServerSidebar } from "./components/ServerSidebar";
 import { Chat } from "./components/Chat";
+import { ConversationItem } from "./components/ConversationItem";
 
 const TITLE_MAX_LENGTH = 60;
 
@@ -138,51 +139,14 @@ export function App() {
           style={{ listStyle: "none", margin: 0, padding: 0, overflowY: "auto", flex: 1 }}
         >
           {conversations.map((conv) => (
-            <li key={conv.id} style={{ display: "flex", alignItems: "center" }}>
-              <button
-                onClick={() => switchConversation(conv.id)}
-                style={{
-                  flex: 1,
-                  textAlign: "left",
-                  padding: "8px",
-                  background:
-                    conv.id === activeConversationId ? "#e8e8e8" : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {conv.title}
-              </button>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  renameConversation(conv.id, (formData.get("title") as string | null) ?? "");
-                }}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <input
-                  name="title"
-                  aria-label={`Rename input ${conv.id}`}
-                  defaultValue={conv.title}
-                  style={{ width: "80px", fontSize: "12px" }}
-                />
-                <button
-                  type="submit"
-                  aria-label={`Rename ${conv.title}`}
-                  style={{ padding: "4px 8px", border: "none", cursor: "pointer", background: "transparent" }}
-                >
-                  ✏
-                </button>
-              </form>
-              <button
-                onClick={() => deleteConversation(conv.id)}
-                aria-label={`Delete ${conv.title}`}
-                style={{ padding: "4px 8px", border: "none", cursor: "pointer", background: "transparent" }}
-              >
-                ×
-              </button>
-            </li>
+            <ConversationItem
+              key={conv.id}
+              conversation={conv}
+              isActive={conv.id === activeConversationId}
+              onSelect={switchConversation}
+              onRename={renameConversation}
+              onDelete={deleteConversation}
+            />
           ))}
         </ul>
 

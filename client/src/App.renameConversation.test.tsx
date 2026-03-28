@@ -5,7 +5,7 @@
  * handleMessagesChange directly without triggering real network requests.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { App } from "./App";
 import type { Conversation } from "./lib/types";
 import type { UIMessage } from "ai";
@@ -43,6 +43,26 @@ vi.mock("./lib/api", () => ({
 const CONVERSATIONS_KEY = "mcp-chat:conversations";
 const ACTIVE_ID_KEY = "mcp-chat:active-conversation";
 
+// ---- UI helpers ----
+
+function openRenameModal(conversationTitle: string) {
+  const btn = screen.getByRole("button", { name: conversationTitle });
+  const li = btn.closest("li") as HTMLElement;
+  fireEvent.mouseEnter(li);
+  const meatball = within(li).getByRole("button", { name: "Conversation options" });
+  fireEvent.click(meatball);
+  const renameItem = screen.getByRole("menuitem", { name: "Rename" });
+  fireEvent.click(renameItem);
+  // return dialog input for further interaction
+  const dialog = screen.getByRole("dialog");
+  return dialog.querySelector("input") as HTMLInputElement;
+}
+
+function saveRename(newTitle: string, inputEl: HTMLInputElement) {
+  fireEvent.change(inputEl, { target: { value: newTitle } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+}
+
 // ---- Helpers ----
 
 function makeUserMessage(text: string, id = "msg-1"): UIMessage {
@@ -79,9 +99,8 @@ describe("renameConversation", () => {
 
     render(<App />);
 
-    const input = screen.getByLabelText("Rename input conv-1");
-    fireEvent.change(input, { target: { value: "New Title" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename Old Title" }));
+    const input = openRenameModal("Old Title");
+    saveRename("New Title", input);
 
     const stored = storedConversations();
     const updated = stored.find((c) => c.id === "conv-1");
@@ -101,9 +120,8 @@ describe("renameConversation", () => {
     render(<App />);
 
     // Rename the conversation
-    const input = screen.getByLabelText("Rename input conv-2");
-    fireEvent.change(input, { target: { value: "My Custom Name" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename Old Title" }));
+    const input = openRenameModal("Old Title");
+    saveRename("My Custom Name", input);
 
     // Now trigger handleMessagesChange — should NOT overwrite the custom title
     act(() => {
@@ -127,9 +145,10 @@ describe("renameConversation", () => {
 
     render(<App />);
 
-    const input = screen.getByLabelText("Rename input conv-3");
+    const input = openRenameModal("Keep This Title");
+    // clear the input and try to save with empty value
     fireEvent.change(input, { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename Keep This Title" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     const stored = storedConversations();
     const updated = stored.find((c) => c.id === "conv-3");
@@ -148,9 +167,8 @@ describe("renameConversation", () => {
 
     render(<App />);
 
-    const input = screen.getByLabelText("Rename input conv-4");
-    fireEvent.change(input, { target: { value: "After Rename" } });
-    fireEvent.click(screen.getByRole("button", { name: "Rename Before Rename" }));
+    const input = openRenameModal("Before Rename");
+    saveRename("After Rename", input);
 
     const stored = storedConversations();
     expect(stored).toHaveLength(1);

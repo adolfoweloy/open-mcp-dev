@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { App } from "./App";
+
+function deleteConv(title: string) {
+  const btn = screen.getByRole("button", { name: title });
+  const li = btn.closest("li") as HTMLElement;
+  fireEvent.mouseEnter(li);
+  const meatball = within(li).getByRole("button", { name: "Conversation options" });
+  fireEvent.click(meatball);
+  const deleteItem = screen.getByRole("menuitem", { name: "Delete" });
+  fireEvent.click(deleteItem);
+}
 
 beforeAll(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -115,7 +125,7 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.click(screen.getByRole("button", { name: "Delete Conv B" }));
+      deleteConv("Conv B");
 
       expect(screen.queryByText("Conv B")).not.toBeInTheDocument();
       expect(screen.getByText("Conv A")).toBeInTheDocument();
@@ -138,7 +148,7 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.click(screen.getByRole("button", { name: "Delete Conv A" }));
+      deleteConv("Conv A");
 
       expect(screen.queryByText("Conv A")).not.toBeInTheDocument();
       expect(localStorage.getItem("mcp-chat:active-conversation")).toBe("conv-b");
@@ -151,7 +161,7 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.click(screen.getByRole("button", { name: "Delete Only Chat" }));
+      deleteConv("Only Chat");
 
       expect(screen.queryByText("Only Chat")).not.toBeInTheDocument();
       expect(screen.getByText("Start a new chat")).toBeInTheDocument();
@@ -168,7 +178,7 @@ describe("App", () => {
 
       render(<App />);
 
-      fireEvent.click(screen.getByRole("button", { name: "Delete Chat X" }));
+      deleteConv("Chat X");
 
       const stored = JSON.parse(
         localStorage.getItem("mcp-chat:conversations") ?? "[]"
