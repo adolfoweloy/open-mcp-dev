@@ -46,7 +46,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Update default panel width and add minimum chat width protection. Change default

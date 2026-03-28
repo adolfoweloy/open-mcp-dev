@@ -37,4 +37,13 @@ describe("DebugToggleHandle", () => {
     rerender(<DebugToggleHandle isOpen={true} onToggle={vi.fn()} />);
     expect(screen.getByRole("button")).toHaveAttribute("data-open", "true");
   });
+
+  it("does not render as a thick bar (width is appropriate for a tab, not a full-height divider)", () => {
+    render(<DebugToggleHandle isOpen={false} onToggle={vi.fn()} />);
+    const btn = screen.getByTestId("debug-toggle-handle");
+    const widthPx = parseInt(btn.style.width, 10);
+    // A tab should be narrow — much less than a thick bar (e.g. 12–20px wide, certainly <= 40px)
+    expect(widthPx).toBeGreaterThan(0);
+    expect(widthPx).toBeLessThanOrEqual(40);
+  });
 });
