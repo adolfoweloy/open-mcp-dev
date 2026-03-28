@@ -148,7 +148,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- DebugPanel component ---
   - task: >
