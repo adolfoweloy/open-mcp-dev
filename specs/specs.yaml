@@ -57,4 +57,4 @@ specs:
     domain: root
     feature: server_settings_ui
     description: Settings drawer (gear icon, bottom-left sidebar) for adding, editing, and deleting MCP servers from the UI; writes to config.yaml, hot-reloads connections via MCPClientManager CRUD methods
-    status: todo
+    status: wip
