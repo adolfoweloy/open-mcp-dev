@@ -115,7 +115,7 @@ tasks:
       - specs/root/server_settings_ui/requirements.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test config routes: (a) GET /api/config/servers returns scrubbed configs — assert
@@ -129,7 +129,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- Frontend API functions ---
   - task: >

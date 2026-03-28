@@ -8,20 +8,29 @@ import { createModelsRouter } from "./routes/models.js";
 import { createMcpRouter } from "./routes/mcp.js";
 import { createMcpProxyRouter } from "./routes/mcp-proxy.js";
 import { createOAuthRouter } from "./routes/oauth.js";
+import { createConfigRouter } from "./routes/config.js";
+import { ConfigWriter } from "./lib/config-writer.js";
 
 /**
  * Wire all API routes onto an Express application.
  * Exported so tests can build the app without listening on a port.
  */
-export function createApp(config: Config, mcpManager: MCPClientManager) {
+export function createApp(
+  config: Config,
+  mcpManager: MCPClientManager,
+  configWriter?: ConfigWriter
+) {
   const app = express();
   app.use(express.json());
+
+  const writer = configWriter ?? new ConfigWriter();
 
   app.use("/api", createChatRouter(config, mcpManager));
   app.use("/api", createModelsRouter(config));
   app.use("/api", createMcpRouter(config, mcpManager));
   app.use("/api", createMcpProxyRouter(mcpManager));
   app.use("/api", createOAuthRouter(config, mcpManager));
+  app.use("/api", createConfigRouter(mcpManager, writer));
 
   // In production, serve the built client
   if (process.env.NODE_ENV === "production") {
