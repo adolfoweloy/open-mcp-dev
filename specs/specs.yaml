@@ -58,3 +58,9 @@ specs:
     feature: server_settings_ui
     description: Settings drawer (gear icon, bottom-left sidebar) for adding, editing, and deleting MCP servers from the UI; writes to config.yaml, hot-reloads connections via MCPClientManager CRUD methods
     status: done
+
+  - id: servers__management
+    domain: servers
+    feature: management
+    description: Separate sidebar (per-chat enable/disable toggle) from settings (connect/disconnect/CRUD); replace gear icon with "Settings" link; block tool calls for disabled servers
+    status: todo

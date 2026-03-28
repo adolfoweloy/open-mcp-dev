@@ -72,8 +72,15 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 
 ## Settings UI Pattern
 
-- Settings gear icon fixed at bottom-left of sidebar → opens a slide-over drawer (same UX pattern as ChatGPT/Claude Desktop)
+- "Settings" text link fixed at bottom-left of sidebar → opens a slide-over drawer (same UX pattern as ChatGPT/Claude Desktop)
 - Drawer-level and full-page modals rendered via `ReactDOM.createPortal` into `document.body` (follows existing dropdown portal pattern)
+
+## Server Enable/Disable (per-chat)
+
+- Sidebar checkbox = per-chat enable/disable only; connect/disconnect lives in the settings drawer
+- `Conversation.enabledServers?: string[]` persists toggle state per conversation in localStorage; absence means all connected servers enabled
+- `ChatRequest.disabledServers: string[]` carries the off-toggled server IDs to the backend
+- Backend blocks tool calls from disabled servers server-side (returns error string); tools remain visible to the LLM
 
 ## Error Handling
 
