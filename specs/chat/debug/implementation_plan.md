@@ -69,7 +69,7 @@ tasks:
     refs:
       - specs/chat/debug/design.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test resize handle: (1) drag updates width within min/max bounds, (2) max width

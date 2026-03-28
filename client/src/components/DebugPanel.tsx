@@ -112,11 +112,17 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
       style={{ width: `${width}px`, position: "relative" }}
       className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden"
     >
-      {/* Resize handle — absolutely positioned on left edge */}
+      {/* Resize handle — 8px grab area straddling the left edge, 1px visible line */}
       <div
+        data-testid="resize-grab-area"
         onMouseDown={handleResizeMouseDown}
-        className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize bg-neutral-700 hover:bg-blue-500 transition-colors z-10"
-      />
+        className="absolute top-0 bottom-0 left-[-4px] w-2 cursor-col-resize z-10 group"
+      >
+        <div
+          data-testid="resize-visible-line"
+          className="absolute top-0 bottom-0 left-[4px] w-px bg-neutral-700 group-hover:bg-blue-400 transition-colors"
+        />
+      </div>
 
       {/* Header */}
       <div className="flex items-center justify-between pl-3 pr-2 py-1.5 border-b border-neutral-700 shrink-0">
