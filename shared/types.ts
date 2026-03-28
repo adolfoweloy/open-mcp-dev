@@ -91,5 +91,7 @@ export interface StreamDebugEvent {
     summary: string;
     payload?: string;
     correlationId?: string;
+    step?: number;
+    durationMs?: number;
   };
 }

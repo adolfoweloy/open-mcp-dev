@@ -28,10 +28,13 @@ export interface DebugEvent {
   id: string;
   timestamp: Date;
   actor: DebugActor;
+  // Event types include: 'step-start' | 'step-finish' | 'tool-decision' | 'tool-call' | 'tool-result' | 'tool-error' | 'oauth-start' | 'oauth-token' | 'oauth-refresh'
   type: string;
   summary: string;
   payload?: string;
   correlationId?: string;
+  step?: number;      // which streamText step this event belongs to (1-indexed)
+  durationMs?: number; // elapsed time for response/result events
 }
 
 export function serializePayload(data: unknown): string {

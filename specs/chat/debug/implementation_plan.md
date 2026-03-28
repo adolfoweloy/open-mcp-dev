@@ -90,7 +90,7 @@ tasks:
     refs:
       - specs/chat/debug/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Replace single LLM request/response events with per-step events in chat.ts.
