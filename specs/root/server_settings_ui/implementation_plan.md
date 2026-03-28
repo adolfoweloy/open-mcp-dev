@@ -141,7 +141,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/design.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test frontend API functions: mock fetch, verify each function sends correct

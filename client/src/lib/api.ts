@@ -1,4 +1,8 @@
 import type { ModelInfo, McpServerStatus } from "./types";
+import type {
+  ServerConfigsResponse,
+  McpServerConfig,
+} from "../../../shared/types";
 
 async function checkResponse(res: Response): Promise<Response> {
   if (!res.ok) {
@@ -56,4 +60,43 @@ export async function fetchOAuthAuthUrl(
   );
   await checkResponse(res);
   return res.json() as Promise<{ authUrl: string }>;
+}
+
+export async function fetchServerConfigs(): Promise<ServerConfigsResponse> {
+  const res = await fetch("/api/config/servers");
+  await checkResponse(res);
+  return res.json() as Promise<ServerConfigsResponse>;
+}
+
+export async function addServer(
+  id: string,
+  config: McpServerConfig
+): Promise<{ id: string; status: McpServerStatus }> {
+  const res = await fetch("/api/config/servers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, config }),
+  });
+  await checkResponse(res);
+  return res.json() as Promise<{ id: string; status: McpServerStatus }>;
+}
+
+export async function updateServer(
+  id: string,
+  body: { newId?: string; config: McpServerConfig }
+): Promise<{ id: string; status: McpServerStatus }> {
+  const res = await fetch(`/api/config/servers/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  await checkResponse(res);
+  return res.json() as Promise<{ id: string; status: McpServerStatus }>;
+}
+
+export async function deleteServer(id: string): Promise<void> {
+  const res = await fetch(`/api/config/servers/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  await checkResponse(res);
 }
