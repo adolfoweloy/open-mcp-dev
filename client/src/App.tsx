@@ -14,10 +14,21 @@ import { SettingsDrawer } from "./components/SettingsDrawer";
 import { ServerFormModal } from "./components/ServerFormModal";
 import { Chat } from "./components/Chat";
 import { ConversationItem } from "./components/ConversationItem";
+import { DebugProvider, useDebugEmit } from "./lib/debug-context";
+import { DebugToggleHandle } from "./components/DebugToggleHandle";
+import { DebugPanel } from "./components/DebugPanel";
 
 const SERVERS_POLL_INTERVAL_MS = 5000;
 
 const TITLE_MAX_LENGTH = 60;
+
+function DebugConversationClear({ conversationId }: { conversationId: string | null }) {
+  const { clear } = useDebugEmit();
+  useEffect(() => {
+    clear();
+  }, [conversationId, clear]);
+  return null;
+}
 
 function deriveTitle(messages: UIMessage[]): string {
   const firstUserMsg = messages.find((m) => m.role === "user");
@@ -39,6 +50,8 @@ export function App() {
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editServerId, setEditServerId] = useState<string | undefined>(undefined);
   const [servers, setServers] = useState<McpServerStatus[]>([]);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const [debugPanelWidth, setDebugPanelWidth] = useState(400);
 
   const activeConversationRef = useRef<Conversation | null>(null);
 
@@ -174,94 +187,111 @@ export function App() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      {/* Left panel */}
-      <div
-        style={{
-          width: "280px",
-          borderRight: "1px solid #ddd",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ padding: "8px" }}>
-          <button onClick={createNewConversation} style={{ width: "100%" }}>
-            + New Chat
-          </button>
-        </div>
-
-        <ul
-          style={{ listStyle: "none", margin: 0, padding: 0, overflowY: "auto", flex: 1 }}
-        >
-          {conversations.map((conv) => (
-            <ConversationItem
-              key={conv.id}
-              conversation={conv}
-              isActive={conv.id === activeConversationId}
-              onSelect={switchConversation}
-              onRename={renameConversation}
-              onDelete={deleteConversation}
-            />
-          ))}
-        </ul>
-
-        <ServerSidebar
-          servers={servers}
-          enabledServers={enabledServers}
-          onToggle={handleToggleServer}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
-      </div>
-
-      <SettingsDrawer
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        servers={servers}
-        onRequestAddServer={handleRequestAddServer}
-        onRequestEditServer={handleRequestEditServer}
-        onServersChanged={() => {}}
-      />
-      {formMode !== null && (
-        <ServerFormModal
-          mode={formMode}
-          serverId={editServerId}
-          onClose={handleFormClose}
-          onSaved={() => {
-            handleFormClose();
+    <DebugProvider>
+      <DebugConversationClear conversationId={activeConversationId} />
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+        {/* Left panel */}
+        <div
+          style={{
+            width: "280px",
+            borderRight: "1px solid #ddd",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
-        />
-      )}
+        >
+          <div style={{ padding: "8px" }}>
+            <button onClick={createNewConversation} style={{ width: "100%" }}>
+              + New Chat
+            </button>
+          </div>
 
-      {/* Main area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "8px", borderBottom: "1px solid #ddd" }}>
-          <ModelSelector value={selectedModel} onSelect={setSelectedModel} />
+          <ul
+            style={{ listStyle: "none", margin: 0, padding: 0, overflowY: "auto", flex: 1 }}
+          >
+            {conversations.map((conv) => (
+              <ConversationItem
+                key={conv.id}
+                conversation={conv}
+                isActive={conv.id === activeConversationId}
+                onSelect={switchConversation}
+                onRename={renameConversation}
+                onDelete={deleteConversation}
+              />
+            ))}
+          </ul>
+
+          <ServerSidebar
+            servers={servers}
+            enabledServers={enabledServers}
+            onToggle={handleToggleServer}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+          />
         </div>
 
-        {activeConversation ? (
-          <Chat
-            key={activeConversation.id}
-            conversation={activeConversation}
-            model={selectedModel}
-            selectedServers={enabledServers}
-            disabledServers={disabledServers}
-            onMessagesChange={handleMessagesChange}
-          />
-        ) : (
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#888",
+        <SettingsDrawer
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          servers={servers}
+          onRequestAddServer={handleRequestAddServer}
+          onRequestEditServer={handleRequestEditServer}
+          onServersChanged={() => {}}
+        />
+        {formMode !== null && (
+          <ServerFormModal
+            mode={formMode}
+            serverId={editServerId}
+            onClose={handleFormClose}
+            onSaved={() => {
+              handleFormClose();
             }}
-          >
-            Start a new chat
-          </div>
+          />
         )}
+
+        {/* Main area */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "8px", borderBottom: "1px solid #ddd" }}>
+            <ModelSelector value={selectedModel} onSelect={setSelectedModel} />
+          </div>
+
+          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+            {activeConversation ? (
+              <Chat
+                key={activeConversation.id}
+                conversation={activeConversation}
+                model={selectedModel}
+                selectedServers={enabledServers}
+                disabledServers={disabledServers}
+                onMessagesChange={handleMessagesChange}
+              />
+            ) : (
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#888",
+                }}
+              >
+                Start a new chat
+              </div>
+            )}
+            <DebugToggleHandle
+              isOpen={isDebugOpen}
+              onToggle={() => setIsDebugOpen((prev) => !prev)}
+            />
+            {isDebugOpen && (
+              <DebugPanel
+                isOpen={isDebugOpen}
+                width={debugPanelWidth}
+                onClose={() => setIsDebugOpen(false)}
+                onWidthChange={setDebugPanelWidth}
+              />
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </DebugProvider>
   );
 }

@@ -138,7 +138,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test App.tsx debug wiring: (1) DebugProvider wraps content, (2) toggling debug panel
