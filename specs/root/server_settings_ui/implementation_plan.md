@@ -149,7 +149,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/design.md
     priority: medium
-    status: todo
+    status: done
 
   # --- Settings Drawer ---
   - task: >

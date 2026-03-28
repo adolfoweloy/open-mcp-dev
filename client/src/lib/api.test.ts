@@ -6,8 +6,13 @@ import {
   disconnectServer,
   startOAuthConnect,
   fetchOAuthAuthUrl,
+  fetchServerConfigs,
+  addServer,
+  updateServer,
+  deleteServer,
 } from "./api";
 import type { ModelInfo, McpServerStatus } from "./types";
+import type { ServerConfigsResponse, McpServerConfig } from "../../../shared/types";
 
 // We mock the global fetch
 const mockFetch = vi.fn();
@@ -190,5 +195,166 @@ describe("fetchOAuthAuthUrl", () => {
   it("throws on non-2xx response", async () => {
     mockFetch.mockResolvedValueOnce(makeResponse(500, "error"));
     await expect(fetchOAuthAuthUrl("srv")).rejects.toThrow("HTTP 500");
+  });
+});
+
+describe("fetchServerConfigs", () => {
+  it("sends GET /api/config/servers and returns parsed JSON", async () => {
+    const configs: ServerConfigsResponse = {
+      "my-stdio": { type: "stdio", command: "node", args: ["server.js"] },
+      "my-http": { type: "http", url: "http://localhost:3000" },
+    };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, configs));
+
+    const result = await fetchServerConfigs();
+
+    expect(mockFetch).toHaveBeenCalledWith("/api/config/servers");
+    expect(result).toEqual(configs);
+  });
+
+  it("throws on non-2xx response", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(500, "Internal Server Error"));
+    await expect(fetchServerConfigs()).rejects.toThrow("HTTP 500");
+  });
+});
+
+describe("addServer", () => {
+  const stdioConfig: McpServerConfig = { type: "stdio", command: "node", args: ["server.js"] };
+
+  it("sends POST /api/config/servers with correct JSON body", async () => {
+    const status: McpServerStatus = { id: "new-server", connected: false, requiresOAuth: false, type: "stdio" };
+    mockFetch.mockResolvedValueOnce(makeResponse(201, { id: "new-server", status }));
+
+    await addServer("new-server", stdioConfig);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ id: "new-server", config: stdioConfig }),
+      })
+    );
+  });
+
+  it("returns { id, status } on 201", async () => {
+    const status: McpServerStatus = { id: "new-server", connected: false, requiresOAuth: false, type: "stdio" };
+    mockFetch.mockResolvedValueOnce(makeResponse(201, { id: "new-server", status }));
+
+    const result = await addServer("new-server", stdioConfig);
+
+    expect(result).toEqual({ id: "new-server", status });
+  });
+
+  it("throws on 400 (duplicate id)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(400, { error: "Server ID already exists" }));
+    await expect(addServer("existing", stdioConfig)).rejects.toThrow("HTTP 400");
+  });
+
+  it("throws on 422 (validation error)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(422, { error: "Validation error: command required" }));
+    await expect(addServer("bad", stdioConfig)).rejects.toThrow("HTTP 422");
+  });
+});
+
+describe("updateServer", () => {
+  const httpConfig: McpServerConfig = { type: "http", url: "http://localhost:4000" };
+
+  it("sends PUT /api/config/servers/:id with correct JSON body", async () => {
+    const status: McpServerStatus = { id: "my-server", connected: true, requiresOAuth: false, type: "http" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { id: "my-server", status }));
+
+    await updateServer("my-server", { config: httpConfig });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers/my-server",
+      expect.objectContaining({
+        method: "PUT",
+        headers: expect.objectContaining({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ config: httpConfig }),
+      })
+    );
+  });
+
+  it("sends newId when renaming", async () => {
+    const status: McpServerStatus = { id: "new-name", connected: false, requiresOAuth: false, type: "http" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { id: "new-name", status }));
+
+    await updateServer("old-name", { newId: "new-name", config: httpConfig });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers/old-name",
+      expect.objectContaining({
+        body: JSON.stringify({ newId: "new-name", config: httpConfig }),
+      })
+    );
+  });
+
+  it("encodes special characters in id", async () => {
+    const status: McpServerStatus = { id: "my server", connected: false, requiresOAuth: false, type: "stdio" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { id: "my server", status }));
+
+    await updateServer("my server", { config: { type: "stdio", command: "node" } });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers/my%20server",
+      expect.anything()
+    );
+  });
+
+  it("returns { id, status } on 200", async () => {
+    const status: McpServerStatus = { id: "my-server", connected: true, requiresOAuth: false, type: "http" };
+    mockFetch.mockResolvedValueOnce(makeResponse(200, { id: "my-server", status }));
+
+    const result = await updateServer("my-server", { config: httpConfig });
+
+    expect(result).toEqual({ id: "my-server", status });
+  });
+
+  it("throws on 404 (not found)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(404, { error: "Server not found" }));
+    await expect(updateServer("unknown", { config: httpConfig })).rejects.toThrow("HTTP 404");
+  });
+
+  it("throws on 400 (id conflict)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(400, { error: "New server ID already exists" }));
+    await expect(updateServer("srv", { newId: "existing", config: httpConfig })).rejects.toThrow("HTTP 400");
+  });
+});
+
+describe("deleteServer", () => {
+  it("sends DELETE /api/config/servers/:id", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, ""));
+
+    await deleteServer("my-server");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers/my-server",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("encodes special characters in id", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, ""));
+
+    await deleteServer("my server/x");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/config/servers/my%20server%2Fx",
+      expect.anything()
+    );
+  });
+
+  it("returns void on 204", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(204, ""));
+
+    const result = await deleteServer("my-server");
+
+    expect(result).toBeUndefined();
+  });
+
+  it("throws on 404 (not found)", async () => {
+    mockFetch.mockResolvedValueOnce(makeResponse(404, { error: "Server not found" }));
+    await expect(deleteServer("unknown")).rejects.toThrow("HTTP 404");
   });
 });
