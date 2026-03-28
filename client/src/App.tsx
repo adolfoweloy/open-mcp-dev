@@ -51,7 +51,7 @@ export function App() {
   const [editServerId, setEditServerId] = useState<string | undefined>(undefined);
   const [servers, setServers] = useState<McpServerStatus[]>([]);
   const [isDebugOpen, setIsDebugOpen] = useState(false);
-  const [debugPanelWidth, setDebugPanelWidth] = useState(400);
+  const [debugPanelWidth, setDebugPanelWidth] = useState(340);
 
   const activeConversationRef = useRef<Conversation | null>(null);
 
@@ -254,29 +254,31 @@ export function App() {
             <ModelSelector value={selectedModel} onSelect={setSelectedModel} />
           </div>
 
-          <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-            {activeConversation ? (
-              <Chat
-                key={activeConversation.id}
-                conversation={activeConversation}
-                model={selectedModel}
-                selectedServers={enabledServers}
-                disabledServers={disabledServers}
-                onMessagesChange={handleMessagesChange}
-              />
-            ) : (
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#888",
-                }}
-              >
-                Start a new chat
-              </div>
-            )}
+          <div style={{ flex: 1, display: "flex", overflow: "hidden", minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: "400px", overflow: "hidden" }}>
+              {activeConversation ? (
+                <Chat
+                  key={activeConversation.id}
+                  conversation={activeConversation}
+                  model={selectedModel}
+                  selectedServers={enabledServers}
+                  disabledServers={disabledServers}
+                  onMessagesChange={handleMessagesChange}
+                />
+              ) : (
+                <div
+                  style={{
+                    height: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#888",
+                  }}
+                >
+                  Start a new chat
+                </div>
+              )}
+            </div>
             <DebugToggleHandle
               isOpen={isDebugOpen}
               onToggle={() => setIsDebugOpen((prev) => !prev)}

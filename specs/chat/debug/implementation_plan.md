@@ -58,7 +58,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Improve resize handle discoverability. Widen the invisible grab area to 8px

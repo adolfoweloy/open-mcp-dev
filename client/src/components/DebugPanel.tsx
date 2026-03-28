@@ -84,7 +84,8 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
     const startWidth = width;
     const onMove = (ev: MouseEvent) => {
       const delta = startX - ev.clientX;
-      const clamped = Math.max(240, Math.min(startWidth + delta, window.innerWidth * 0.8));
+      const maxWidth = window.innerWidth - 280 /* sidebar */ - 400 /* min chat */;
+      const clamped = Math.max(240, Math.min(startWidth + delta, maxWidth));
       onWidthChange(clamped);
     };
     const onUp = () => {
