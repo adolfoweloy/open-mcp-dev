@@ -82,6 +82,14 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 - `ChatRequest.disabledServers: string[]` carries the off-toggled server IDs to the backend
 - Backend blocks tool calls from disabled servers server-side (returns error string); tools remain visible to the LLM
 
+## Debug Event Pipeline
+
+- Server-side debug events (LLM request/response, MCP tool calls, in-flight OAuth) are emitted via the `emitEvent` callback in `chat.ts` as `{ type: 'debug', event: DebugEvent }` data stream entries; `Chat.tsx` forwards them into `DebugContext` via a `useEffect` on `useChat`'s `data` array
+- Out-of-band events (startup connect/disconnect, REST-triggered OAuth) are not captured — they occur outside any active SSE stream
+- `DebugContext` uses a split-context pattern: `DebugEmitContext` (stable `emit` + `clear`) and `DebugLogContext` (event array), so components that only emit do not re-render on log changes
+- Actor colors are hardcoded Tailwind utility classes per actor enum value (not computed from strings) to satisfy Tailwind CSS 4's static scan requirement
+- MCP event granularity is logical (callTool call + result), not wire-level JSON-RPC — the SDK `Client` does not expose transport hooks
+
 ## Error Handling
 
 - MCP connection failures at startup: warn and continue (non-fatal)
