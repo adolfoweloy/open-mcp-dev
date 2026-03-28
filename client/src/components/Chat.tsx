@@ -3,6 +3,7 @@ import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "../lib/types";
 import type { Conversation } from "../lib/types";
 import type { ModelSelection } from "../lib/types";
+import { useDebugEmit } from "../lib/debug-context";
 import { MessageList } from "./MessageList";
 import { OAuthBanner } from "./OAuthBanner";
 
@@ -22,6 +23,7 @@ export function Chat({
   onMessagesChange,
 }: Props) {
   const [oauthBannerServerId, setOauthBannerServerId] = useState<string | null>(null);
+  const { emit } = useDebugEmit();
 
   const {
     messages,
@@ -58,6 +60,37 @@ export function Chat({
       }
     }
   }, [data]);
+
+  // Forward debug events from the data stream into DebugContext
+  const lastDebugIndexRef = useRef(0);
+  useEffect(() => {
+    if (!data) return;
+    const start = lastDebugIndexRef.current;
+    for (let i = start; i < data.length; i++) {
+      const part = data[i];
+      if (
+        part !== null &&
+        typeof part === "object" &&
+        !Array.isArray(part) &&
+        (part as Record<string, unknown>).type === "debug"
+      ) {
+        const raw = part as Record<string, unknown>;
+        const event = raw.event as Record<string, unknown> | undefined;
+        if (event && typeof event.timestamp === "string") {
+          emit({
+            id: event.id as string,
+            timestamp: new Date(event.timestamp),
+            actor: event.actor as import("../lib/types").DebugActor,
+            type: event.type as string,
+            summary: event.summary as string,
+            payload: event.payload as string | undefined,
+            correlationId: event.correlationId as string | undefined,
+          });
+        }
+      }
+    }
+    lastDebugIndexRef.current = data.length;
+  }, [data, emit]);
 
   // Expose append for external use (e.g. McpResourceFrame ui/message)
   const appendRef = useRef(append);

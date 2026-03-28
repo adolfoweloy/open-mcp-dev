@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { Chat } from "./Chat";
 import type { Conversation } from "../lib/types";
+import { DebugProvider, useDebugLog } from "../lib/debug-context";
 
 // Mock OAuthBanner to keep tests focused on Chat behavior
 vi.mock("./OAuthBanner", () => ({
@@ -293,5 +294,184 @@ describe("Chat", () => {
     await waitFor(() => {
       expect(screen.getByTestId("oauth-banner")).toHaveAttribute("data-server-id", "server-b");
     });
+  });
+});
+
+// Helper component to capture emitted debug events
+function DebugLogCapture({ onLog }: { onLog: (events: import("../lib/types").DebugEvent[]) => void }) {
+  const events = useDebugLog();
+  onLog(events);
+  return null;
+}
+
+describe("Chat debug event ingestion", () => {
+  it("debug events in data are forwarded to DebugContext via emit", async () => {
+    const isoTimestamp = "2024-01-15T10:30:00.000Z";
+    mockUseChat.mockReturnValue(
+      makeDefaultUseChat({
+        data: [
+          {
+            type: "debug",
+            event: {
+              id: "evt-1",
+              timestamp: isoTimestamp,
+              actor: "llm",
+              type: "request",
+              summary: "LLM request",
+              payload: '{"model":"gpt-4o"}',
+            },
+          },
+        ],
+      }) as unknown as ReturnType<typeof useChat>
+    );
+
+    let capturedEvents: import("../lib/types").DebugEvent[] = [];
+    render(
+      <DebugProvider>
+        <Chat
+          conversation={conversation}
+          model={{ provider: "openai", id: "gpt-4o" }}
+          selectedServers={[]}
+          onMessagesChange={() => {}}
+        />
+        <DebugLogCapture onLog={(evts) => { capturedEvents = evts; }} />
+      </DebugProvider>
+    );
+
+    await waitFor(() => {
+      expect(capturedEvents).toHaveLength(1);
+    });
+    expect(capturedEvents[0].id).toBe("evt-1");
+    expect(capturedEvents[0].actor).toBe("llm");
+    expect(capturedEvents[0].type).toBe("request");
+    expect(capturedEvents[0].summary).toBe("LLM request");
+    expect(capturedEvents[0].payload).toBe('{"model":"gpt-4o"}');
+  });
+
+  it("timestamp is deserialised from ISO string to Date object", async () => {
+    const isoTimestamp = "2024-01-15T10:30:00.000Z";
+    mockUseChat.mockReturnValue(
+      makeDefaultUseChat({
+        data: [
+          {
+            type: "debug",
+            event: {
+              id: "evt-ts",
+              timestamp: isoTimestamp,
+              actor: "mcp-client",
+              type: "tool-call",
+              summary: "tool called",
+            },
+          },
+        ],
+      }) as unknown as ReturnType<typeof useChat>
+    );
+
+    let capturedEvents: import("../lib/types").DebugEvent[] = [];
+    render(
+      <DebugProvider>
+        <Chat
+          conversation={conversation}
+          model={{ provider: "openai", id: "gpt-4o" }}
+          selectedServers={[]}
+          onMessagesChange={() => {}}
+        />
+        <DebugLogCapture onLog={(evts) => { capturedEvents = evts; }} />
+      </DebugProvider>
+    );
+
+    await waitFor(() => {
+      expect(capturedEvents).toHaveLength(1);
+    });
+    expect(capturedEvents[0].timestamp).toBeInstanceOf(Date);
+    expect(capturedEvents[0].timestamp.toISOString()).toBe(isoTimestamp);
+  });
+
+  it("non-debug data entries are ignored", async () => {
+    mockUseChat.mockReturnValue(
+      makeDefaultUseChat({
+        data: [
+          { type: "auth_required", serverId: "foo" },
+          { type: "other", payload: "something" },
+        ],
+      }) as unknown as ReturnType<typeof useChat>
+    );
+
+    let capturedEvents: import("../lib/types").DebugEvent[] = [];
+    render(
+      <DebugProvider>
+        <Chat
+          conversation={conversation}
+          model={{ provider: "openai", id: "gpt-4o" }}
+          selectedServers={[]}
+          onMessagesChange={() => {}}
+        />
+        <DebugLogCapture onLog={(evts) => { capturedEvents = evts; }} />
+      </DebugProvider>
+    );
+
+    // Give enough time for any effect to run
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(capturedEvents).toHaveLength(0);
+  });
+
+  it("events are not re-emitted on component re-render", async () => {
+    const isoTimestamp = "2024-01-15T10:30:00.000Z";
+    const dataFixture = [
+      {
+        type: "debug",
+        event: {
+          id: "evt-rerender",
+          timestamp: isoTimestamp,
+          actor: "llm",
+          type: "response",
+          summary: "done",
+        },
+      },
+    ];
+
+    mockUseChat.mockReturnValue(
+      makeDefaultUseChat({ data: dataFixture }) as unknown as ReturnType<typeof useChat>
+    );
+
+    let capturedEvents: import("../lib/types").DebugEvent[] = [];
+    const { rerender } = render(
+      <DebugProvider>
+        <Chat
+          conversation={conversation}
+          model={{ provider: "openai", id: "gpt-4o" }}
+          selectedServers={[]}
+          onMessagesChange={() => {}}
+        />
+        <DebugLogCapture onLog={(evts) => { capturedEvents = evts; }} />
+      </DebugProvider>
+    );
+
+    await waitFor(() => {
+      expect(capturedEvents).toHaveLength(1);
+    });
+
+    // Re-render with the same data — should not emit again
+    mockUseChat.mockReturnValue(
+      makeDefaultUseChat({ data: dataFixture }) as unknown as ReturnType<typeof useChat>
+    );
+    rerender(
+      <DebugProvider>
+        <Chat
+          conversation={conversation}
+          model={{ provider: "openai", id: "gpt-4o" }}
+          selectedServers={[]}
+          onMessagesChange={() => {}}
+        />
+        <DebugLogCapture onLog={(evts) => { capturedEvents = evts; }} />
+      </DebugProvider>
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(capturedEvents).toHaveLength(1);
   });
 });

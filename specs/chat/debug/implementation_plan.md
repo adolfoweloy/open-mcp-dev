@@ -113,7 +113,7 @@ tasks:
     refs:
       - specs/chat/debug/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test Chat.tsx debug event ingestion: (1) debug events in useChat data are forwarded to
@@ -123,7 +123,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- App.tsx layout and wiring ---
   - task: >
