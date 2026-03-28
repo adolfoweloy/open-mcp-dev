@@ -75,7 +75,7 @@ tasks:
     refs:
       - specs/chat/chat_options/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- HIGH PRIORITY: Rename handler ---
 

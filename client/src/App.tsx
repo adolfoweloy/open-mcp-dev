@@ -127,11 +127,11 @@ export function App() {
           style={{ listStyle: "none", margin: 0, padding: 0, overflowY: "auto", flex: 1 }}
         >
           {conversations.map((conv) => (
-            <li key={conv.id}>
+            <li key={conv.id} style={{ display: "flex", alignItems: "center" }}>
               <button
                 onClick={() => switchConversation(conv.id)}
                 style={{
-                  width: "100%",
+                  flex: 1,
                   textAlign: "left",
                   padding: "8px",
                   background:
@@ -141,6 +141,13 @@ export function App() {
                 }}
               >
                 {conv.title}
+              </button>
+              <button
+                onClick={() => deleteConversation(conv.id)}
+                aria-label={`Delete ${conv.title}`}
+                style={{ padding: "4px 8px", border: "none", cursor: "pointer", background: "transparent" }}
+              >
+                ×
               </button>
             </li>
           ))}

@@ -103,4 +103,78 @@ describe("App", () => {
       expect(screen.getByRole("combobox")).toBeInTheDocument();
     });
   });
+
+  describe("deleteConversation", () => {
+    it("deleting a non-active conversation removes it without changing activeConversationId", () => {
+      const convs = [
+        { id: "conv-a", title: "Conv A", messages: [] },
+        { id: "conv-b", title: "Conv B", messages: [] },
+      ];
+      localStorage.setItem("mcp-chat:conversations", JSON.stringify(convs));
+      localStorage.setItem("mcp-chat:active-conversation", "conv-a");
+
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Delete Conv B" }));
+
+      expect(screen.queryByText("Conv B")).not.toBeInTheDocument();
+      expect(screen.getByText("Conv A")).toBeInTheDocument();
+      expect(localStorage.getItem("mcp-chat:active-conversation")).toBe("conv-a");
+
+      const stored = JSON.parse(
+        localStorage.getItem("mcp-chat:conversations") ?? "[]"
+      ) as Array<{ id: string }>;
+      expect(stored.find((c) => c.id === "conv-b")).toBeUndefined();
+      expect(stored.find((c) => c.id === "conv-a")).toBeDefined();
+    });
+
+    it("deleting the active conversation switches to the most recent remaining conversation", () => {
+      const convs = [
+        { id: "conv-a", title: "Conv A", messages: [] },
+        { id: "conv-b", title: "Conv B", messages: [] },
+      ];
+      localStorage.setItem("mcp-chat:conversations", JSON.stringify(convs));
+      localStorage.setItem("mcp-chat:active-conversation", "conv-a");
+
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Delete Conv A" }));
+
+      expect(screen.queryByText("Conv A")).not.toBeInTheDocument();
+      expect(localStorage.getItem("mcp-chat:active-conversation")).toBe("conv-b");
+    });
+
+    it("deleting the last conversation sets activeConversationId to null", () => {
+      const convs = [{ id: "only", title: "Only Chat", messages: [] }];
+      localStorage.setItem("mcp-chat:conversations", JSON.stringify(convs));
+      localStorage.setItem("mcp-chat:active-conversation", "only");
+
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Delete Only Chat" }));
+
+      expect(screen.queryByText("Only Chat")).not.toBeInTheDocument();
+      expect(screen.getByText("Start a new chat")).toBeInTheDocument();
+      expect(localStorage.getItem("mcp-chat:active-conversation")).toBeNull();
+    });
+
+    it("localStorage reflects deletion after delete", () => {
+      const convs = [
+        { id: "x", title: "Chat X", messages: [] },
+        { id: "y", title: "Chat Y", messages: [] },
+      ];
+      localStorage.setItem("mcp-chat:conversations", JSON.stringify(convs));
+      localStorage.setItem("mcp-chat:active-conversation", "x");
+
+      render(<App />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Delete Chat X" }));
+
+      const stored = JSON.parse(
+        localStorage.getItem("mcp-chat:conversations") ?? "[]"
+      ) as Array<{ id: string }>;
+      expect(stored.length).toBe(1);
+      expect(stored[0].id).toBe("y");
+    });
+  });
 });
