@@ -82,7 +82,7 @@ tasks:
       - specs/root/server_settings_ui/design.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test ConfigWriter: (a) addServer writes new entry to yaml file and it round-trips
@@ -93,7 +93,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- Config REST endpoints ---
   - task: >
