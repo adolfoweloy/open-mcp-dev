@@ -57,6 +57,17 @@ export function App() {
     saveActiveId(id);
   }
 
+  function renameConversation(id: string, newTitle: string) {
+    if (!newTitle.trim()) return;
+    setConversations((prev) => {
+      const updated = prev.map((c) =>
+        c.id === id ? { ...c, title: newTitle.trim(), isUserRenamed: true } : c
+      );
+      saveConversations(updated);
+      return updated;
+    });
+  }
+
   function deleteConversation(id: string) {
     let nextId: string | null = null;
     setConversations((prev) => {

@@ -89,7 +89,7 @@ tasks:
       - specs/chat/chat_options/design.md
       - specs/chat/chat_options/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test renameConversation: (1) renaming sets the new title and isUserRenamed to true;
