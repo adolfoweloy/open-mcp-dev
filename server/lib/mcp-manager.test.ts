@@ -1077,4 +1077,174 @@ describe("MCPClientManager", () => {
       assert.deepEqual(Object.keys(toolSet), []);
     });
   });
+
+  describe("CRUD: addServer / updateServer / removeServer / getServerConfigs", () => {
+    /** Helper to access private maps via type cast */
+    function getPrivateMap<T>(manager: MCPClientManager, key: string): Map<string, T> {
+      return (manager as unknown as Record<string, Map<string, T>>)[key];
+    }
+
+    it("(a) addServer registers config and calls connectToServer", async () => {
+      const manager = new TestMCPClientManager();
+      const config: McpServerConfig = { type: "stdio", command: "echo", args: ["hello"] };
+
+      await manager.addServer("my-srv", config);
+
+      assert.equal(manager.connectToServerCalls.length, 1);
+      assert.equal(manager.connectToServerCalls[0].id, "my-srv");
+      assert.deepEqual(manager.connectToServerCalls[0].config, config);
+
+      const configs = manager.getServerConfigs();
+      assert.equal(configs.size, 1);
+      assert.deepEqual(configs.get("my-srv"), config);
+    });
+
+    it("(b) updateServer with same id disconnects and reconnects with new config", async () => {
+      const manager = new TestMCPClientManager();
+      // Pre-populate a connected client so disconnectServer has something to close
+      const t1 = await createMockServer([]);
+      await manager.connectWithTransport("edit-srv", t1);
+      manager.getServerConfigs().set("edit-srv", { type: "stdio", command: "old-cmd" });
+
+      const newConfig: McpServerConfig = { type: "stdio", command: "new-cmd" };
+      await manager.updateServer("edit-srv", "edit-srv", newConfig);
+
+      // The client should be disconnected then reconnected via connectToServer
+      assert.equal(manager.isConnected("edit-srv"), false, "disconnectServer should have been called");
+      assert.equal(manager.connectToServerCalls.length, 1);
+      assert.equal(manager.connectToServerCalls[0].id, "edit-srv");
+      assert.deepEqual(manager.connectToServerCalls[0].config, newConfig);
+
+      assert.deepEqual(manager.getServerConfigs().get("edit-srv"), newConfig);
+    });
+
+    it("(c) updateServer with rename removes old id from all Maps and registers new id", async () => {
+      const manager = new TestMCPClientManager();
+      // Set up old server with OAuth state
+      manager.getServerConfigs().set("old-srv", { type: "http", url: "http://example.com" });
+      getPrivateMap(manager, "oauthClients").set("old-srv", {
+        clientId: "cid",
+        authorizationEndpoint: "https://auth.example.com/authorize",
+        tokenEndpoint: "https://auth.example.com/token",
+      });
+      getPrivateMap(manager, "tokenSets").set("old-srv", { accessToken: "tok" });
+      getPrivateMap(manager, "authLocks").set("old-srv", { inProgress: false, queue: [] });
+      getPrivateMap<PendingAuthState>(manager, "pendingStates").set("some-state-key", {
+        serverId: "old-srv",
+        codeVerifier: "verifier",
+        expiresAt: Date.now() + 600_000,
+      });
+      getPrivateMap(manager, "oauthServerUrls").set("old-srv", "http://example.com");
+
+      const newConfig: McpServerConfig = { type: "http", url: "http://new-example.com" };
+      await manager.updateServer("old-srv", "new-srv", newConfig);
+
+      // Old id should be gone from all maps
+      assert.equal(manager.getServerConfigs().has("old-srv"), false);
+      assert.equal(getPrivateMap(manager, "oauthClients").has("old-srv"), false);
+      assert.equal(getPrivateMap(manager, "tokenSets").has("old-srv"), false);
+      assert.equal(getPrivateMap(manager, "authLocks").has("old-srv"), false);
+      assert.equal(getPrivateMap(manager, "oauthServerUrls").has("old-srv"), false);
+      // pendingStates keyed by state value — the entry for old-srv should be removed
+      const remainingPending = Array.from(
+        getPrivateMap<PendingAuthState>(manager, "pendingStates").values()
+      ).filter((s) => s.serverId === "old-srv");
+      assert.equal(remainingPending.length, 0);
+
+      // New id should be registered with new config
+      assert.deepEqual(manager.getServerConfigs().get("new-srv"), newConfig);
+      assert.equal(manager.connectToServerCalls.length, 1);
+      assert.equal(manager.connectToServerCalls[0].id, "new-srv");
+    });
+
+    it("(d) removeServer disconnects and clears all 5 OAuth Maps", async () => {
+      const manager = new TestMCPClientManager();
+      // Connect a real in-memory transport so disconnectServer has a client to close
+      const t1 = await createMockServer([]);
+      await manager.connectWithTransport("rm-srv", t1);
+
+      // Populate all OAuth maps
+      manager.getServerConfigs().set("rm-srv", { type: "http", url: "http://example.com" });
+      getPrivateMap(manager, "oauthClients").set("rm-srv", {
+        clientId: "cid",
+        authorizationEndpoint: "https://auth.example.com/authorize",
+        tokenEndpoint: "https://auth.example.com/token",
+      });
+      getPrivateMap(manager, "tokenSets").set("rm-srv", { accessToken: "tok" });
+      getPrivateMap(manager, "authLocks").set("rm-srv", { inProgress: false, queue: [] });
+      getPrivateMap<PendingAuthState>(manager, "pendingStates").set("state-abc", {
+        serverId: "rm-srv",
+        codeVerifier: "verifier",
+        expiresAt: Date.now() + 600_000,
+      });
+      getPrivateMap(manager, "oauthServerUrls").set("rm-srv", "http://example.com");
+
+      await manager.removeServer("rm-srv");
+
+      assert.equal(manager.isConnected("rm-srv"), false, "client should be disconnected");
+      assert.equal(manager.getServerConfigs().has("rm-srv"), false);
+      assert.equal(getPrivateMap(manager, "oauthClients").has("rm-srv"), false);
+      assert.equal(getPrivateMap(manager, "tokenSets").has("rm-srv"), false);
+      assert.equal(getPrivateMap(manager, "authLocks").has("rm-srv"), false);
+      assert.equal(getPrivateMap(manager, "oauthServerUrls").has("rm-srv"), false);
+      const pendingForSrv = Array.from(
+        getPrivateMap<PendingAuthState>(manager, "pendingStates").values()
+      ).filter((s) => s.serverId === "rm-srv");
+      assert.equal(pendingForSrv.length, 0);
+    });
+
+    it("(e) getServerStatuses returns type and error fields", async () => {
+      const manager = new TestMCPClientManager();
+      // Add stdio server that is not connected
+      manager.getServerConfigs().set("stdio-srv", { type: "stdio", command: "echo" });
+      // Inject a server error
+      getPrivateMap<string>(manager, "serverErrors").set("stdio-srv", "spawn failed");
+      // Add http server with oauth
+      manager.getServerConfigs().set("http-srv", {
+        type: "http",
+        url: "http://example.com",
+        oauth: true,
+      });
+
+      const statuses = manager.getServerStatuses();
+      assert.equal(statuses.length, 2);
+
+      const stdioStatus = statuses.find((s) => s.id === "stdio-srv");
+      assert.ok(stdioStatus);
+      assert.equal(stdioStatus.type, "stdio");
+      assert.equal(stdioStatus.connected, false);
+      assert.equal(stdioStatus.error, "spawn failed");
+
+      const httpStatus = statuses.find((s) => s.id === "http-srv");
+      assert.ok(httpStatus);
+      assert.equal(httpStatus.type, "http");
+      assert.equal(httpStatus.requiresOAuth, true);
+      assert.equal(httpStatus.error, undefined);
+    });
+
+    it("(f) getServerConfigs returns current Map state after add/update/remove sequences", async () => {
+      const manager = new TestMCPClientManager();
+      const cfgA: McpServerConfig = { type: "stdio", command: "cmd-a" };
+      const cfgB: McpServerConfig = { type: "http", url: "http://b.example.com" };
+      const cfgBUpdated: McpServerConfig = { type: "http", url: "http://b-new.example.com" };
+
+      await manager.addServer("srv-a", cfgA);
+      await manager.addServer("srv-b", cfgB);
+
+      assert.equal(manager.getServerConfigs().size, 2);
+      assert.deepEqual(manager.getServerConfigs().get("srv-a"), cfgA);
+      assert.deepEqual(manager.getServerConfigs().get("srv-b"), cfgB);
+
+      // Update srv-b in place (no rename)
+      await manager.updateServer("srv-b", "srv-b", cfgBUpdated);
+      assert.equal(manager.getServerConfigs().size, 2);
+      assert.deepEqual(manager.getServerConfigs().get("srv-b"), cfgBUpdated);
+
+      // Remove srv-a
+      await manager.removeServer("srv-a");
+      assert.equal(manager.getServerConfigs().size, 1);
+      assert.equal(manager.getServerConfigs().has("srv-a"), false);
+      assert.deepEqual(manager.getServerConfigs().get("srv-b"), cfgBUpdated);
+    });
+  });
 });

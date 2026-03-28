@@ -65,7 +65,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- ConfigWriter service ---
   - task: >
