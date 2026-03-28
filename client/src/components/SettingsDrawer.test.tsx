@@ -7,11 +7,17 @@ import type { ServerConfigsResponse } from "../../../shared/types";
 vi.mock("../lib/api", () => ({
   fetchServerConfigs: vi.fn(),
   deleteServer: vi.fn(),
+  connectServer: vi.fn(),
+  disconnectServer: vi.fn(),
+  startOAuthConnect: vi.fn(),
 }));
 
-import { fetchServerConfigs, deleteServer } from "../lib/api";
+import { fetchServerConfigs, deleteServer, connectServer, disconnectServer, startOAuthConnect } from "../lib/api";
 const mockFetchConfigs = vi.mocked(fetchServerConfigs);
 const mockDeleteServer = vi.mocked(deleteServer);
+const mockConnect = vi.mocked(connectServer);
+const mockDisconnect = vi.mocked(disconnectServer);
+const mockStartOAuthConnect = vi.mocked(startOAuthConnect);
 
 const stdioConfig: ServerConfigsResponse = {
   "my-stdio": { type: "stdio", command: "npx", args: ["-y", "some-mcp"] },
@@ -292,5 +298,165 @@ describe("SettingsDrawer", () => {
     );
 
     await waitFor(() => screen.getByText("No servers configured"));
+  });
+});
+
+describe("SettingsDrawer connection controls", () => {
+  it("connected server shows Disconnect button", async () => {
+    mockFetchConfigs.mockResolvedValue(stdioConfig);
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[connectedStatus("my-stdio")]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={noop}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-stdio"));
+    expect(screen.getByRole("button", { name: "Disconnect" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reconnect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+  });
+
+  it("disconnected non-OAuth server shows Reconnect button", async () => {
+    mockFetchConfigs.mockResolvedValue(stdioConfig);
+    const disconnected: McpServerStatus = { id: "my-stdio", connected: false, requiresOAuth: false, type: "stdio" };
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[disconnected]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={noop}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-stdio"));
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disconnect" })).not.toBeInTheDocument();
+  });
+
+  it("OAuth server shows Connect button when disconnected", async () => {
+    mockFetchConfigs.mockResolvedValue(httpConfig);
+    const oauthDisconnected: McpServerStatus = { id: "my-http", connected: false, requiresOAuth: true, type: "http" };
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[oauthDisconnected]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={noop}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-http"));
+    expect(screen.getByRole("button", { name: "Connect" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reconnect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Disconnect" })).not.toBeInTheDocument();
+  });
+
+  it("error state shows Reconnect button and error string", async () => {
+    mockFetchConfigs.mockResolvedValue(stdioConfig);
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[errorStatus("my-stdio", "Connection refused")]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={noop}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-stdio"));
+    expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+    expect(screen.getByText("Connection refused")).toBeInTheDocument();
+  });
+
+  it("clicking Disconnect calls disconnectServer and onServersChanged", async () => {
+    mockFetchConfigs.mockResolvedValue(stdioConfig);
+    mockDisconnect.mockResolvedValue(undefined);
+    const onServersChanged = vi.fn();
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[connectedStatus("my-stdio")]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={onServersChanged}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-stdio"));
+    fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+
+    await waitFor(() => {
+      expect(mockDisconnect).toHaveBeenCalledWith("my-stdio");
+      expect(onServersChanged).toHaveBeenCalled();
+    });
+  });
+
+  it("clicking Reconnect calls connectServer and onServersChanged", async () => {
+    mockFetchConfigs.mockResolvedValue(stdioConfig);
+    mockConnect.mockResolvedValue(undefined);
+    const onServersChanged = vi.fn();
+    const disconnected: McpServerStatus = { id: "my-stdio", connected: false, requiresOAuth: false, type: "stdio" };
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[disconnected]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={onServersChanged}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-stdio"));
+    fireEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+
+    await waitFor(() => {
+      expect(mockConnect).toHaveBeenCalledWith("my-stdio");
+      expect(onServersChanged).toHaveBeenCalled();
+    });
+  });
+
+  it("clicking Connect for OAuth server calls startOAuthConnect", async () => {
+    mockFetchConfigs.mockResolvedValue(httpConfig);
+    mockStartOAuthConnect.mockResolvedValue({ status: "connected" });
+    const onServersChanged = vi.fn();
+    const oauthDisconnected: McpServerStatus = { id: "my-http", connected: false, requiresOAuth: true, type: "http" };
+
+    render(
+      <SettingsDrawer
+        isOpen={true}
+        onClose={noop}
+        servers={[oauthDisconnected]}
+        onRequestAddServer={noop}
+        onRequestEditServer={noop}
+        onServersChanged={onServersChanged}
+      />
+    );
+
+    await waitFor(() => screen.getByText("my-http"));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+    await waitFor(() => {
+      expect(mockStartOAuthConnect).toHaveBeenCalledWith("my-http");
+      expect(onServersChanged).toHaveBeenCalled();
+    });
   });
 });

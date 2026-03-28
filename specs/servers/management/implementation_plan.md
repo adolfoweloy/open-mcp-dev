@@ -2,7 +2,7 @@ id: servers__management
 overview: >
   Separate sidebar (per-chat enable/disable toggle) from settings (connect/disconnect/CRUD);
   replace gear icon with "Settings" link; block tool calls for disabled servers server-side.
-status: wip
+status: done
 acceptance_criteria:
   - Sidebar checkboxes toggle servers on/off per conversation; checkbox is disabled and greyed when server is not connected
   - enabledServers is persisted per conversation in localStorage; switching conversations restores each conversation's toggle state
@@ -139,7 +139,7 @@ tasks:
       - specs/servers/management/design.md
       - specs/servers/management/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test SettingsDrawer connection controls: (1) connected server shows Disconnect button,
@@ -149,4 +149,4 @@ tasks:
     refs:
       - specs/servers/management/requirements.md
     priority: medium
-    status: todo
+    status: done

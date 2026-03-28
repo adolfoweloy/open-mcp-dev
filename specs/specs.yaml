@@ -63,7 +63,7 @@ specs:
     domain: servers
     feature: management
     description: Separate sidebar (per-chat enable/disable toggle) from settings (connect/disconnect/CRUD); replace gear icon with "Settings" link; block tool calls for disabled servers
-    status: wip
+    status: done
 
   - id: chat__debug
     domain: chat

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
-import { fetchServerConfigs, deleteServer } from "../lib/api";
+import { fetchServerConfigs, deleteServer, connectServer, disconnectServer, startOAuthConnect } from "../lib/api";
 import type { McpServerStatus } from "../lib/types";
 import type { ScrubbedMcpServerConfig } from "../../../shared/types";
 
@@ -10,6 +10,7 @@ interface ServerRowProps {
   status: McpServerStatus | undefined;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onRefresh: () => void;
 }
 
 function typeBadge(type: "stdio" | "http") {
@@ -102,54 +103,133 @@ function statusBadge(status: McpServerStatus | undefined) {
   );
 }
 
-function ServerRow({ id, config, status, onEdit, onDelete }: ServerRowProps) {
+function ServerRow({ id, config, status, onEdit, onDelete, onRefresh }: ServerRowProps) {
+  async function handleOAuthConnect() {
+    try {
+      const result = await startOAuthConnect(id);
+      if (result.status === "auth_required" && result.authUrl) {
+        const popup = window.open(result.authUrl, "_blank", "width=600,height=700");
+        const origin = `${window.location.protocol}//${window.location.host}`;
+        function messageHandler(event: MessageEvent) {
+          if (event.origin !== origin) return;
+          if (event.data?.type === "oauth_complete" && event.data?.serverId === id) {
+            window.removeEventListener("message", messageHandler);
+            popup?.close();
+            onRefresh();
+          }
+        }
+        window.addEventListener("message", messageHandler);
+      } else if (result.status === "connected") {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error("[SettingsDrawer] OAuth connect failed", id, err);
+    }
+  }
+
+  async function handleConnect() {
+    try {
+      await connectServer(id);
+      onRefresh();
+    } catch (err) {
+      console.error("[SettingsDrawer] Failed to connect", id, err);
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      await disconnectServer(id);
+      onRefresh();
+    } catch (err) {
+      console.error("[SettingsDrawer] Failed to disconnect", id, err);
+    }
+  }
+
+  const isConnected = status?.connected ?? false;
+  const hasError = Boolean(status?.error);
+  const requiresOAuth = status?.requiresOAuth ?? false;
+
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
         padding: "8px 12px",
         borderBottom: "1px solid #e5e7eb",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
-        <span
-          style={{
-            fontWeight: 500,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {id}
-        </span>
-        {typeBadge(config.type)}
-        {statusBadge(status)}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0 }}>
+          <span
+            style={{
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {id}
+          </span>
+          {typeBadge(config.type)}
+          {statusBadge(status)}
+        </div>
+        <div style={{ display: "flex", gap: "6px", marginLeft: "8px", flexShrink: 0 }}>
+          {isConnected && (
+            <button
+              onClick={() => void handleDisconnect()}
+              style={{ fontSize: "12px", padding: "2px 8px", cursor: "pointer" }}
+            >
+              Disconnect
+            </button>
+          )}
+          {!isConnected && requiresOAuth && (
+            <button
+              onClick={() => void handleOAuthConnect()}
+              style={{ fontSize: "12px", padding: "2px 8px", cursor: "pointer" }}
+            >
+              Connect
+            </button>
+          )}
+          {!isConnected && !requiresOAuth && (
+            <button
+              onClick={() => void handleConnect()}
+              style={{ fontSize: "12px", padding: "2px 8px", cursor: "pointer" }}
+            >
+              Reconnect
+            </button>
+          )}
+          <button
+            onClick={() => onEdit(id)}
+            style={{
+              fontSize: "12px",
+              padding: "2px 8px",
+              cursor: "pointer",
+            }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onDelete(id)}
+            style={{
+              fontSize: "12px",
+              padding: "2px 8px",
+              cursor: "pointer",
+              color: "#dc2626",
+            }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
-      <div style={{ display: "flex", gap: "6px", marginLeft: "8px", flexShrink: 0 }}>
-        <button
-          onClick={() => onEdit(id)}
-          style={{
-            fontSize: "12px",
-            padding: "2px 8px",
-            cursor: "pointer",
-          }}
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => onDelete(id)}
-          style={{
-            fontSize: "12px",
-            padding: "2px 8px",
-            cursor: "pointer",
-            color: "#dc2626",
-          }}
-        >
-          Delete
-        </button>
-      </div>
+      {hasError && (
+        <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: "#991b1b" }}>
+          {status!.error}
+        </p>
+      )}
     </div>
   );
 }
@@ -301,6 +381,7 @@ export function SettingsDrawer({
                 status={statusById.get(id)}
                 onEdit={onRequestEditServer}
                 onDelete={(sid) => void handleDelete(sid)}
+                onRefresh={onServersChanged}
               />
             ))
           )}
