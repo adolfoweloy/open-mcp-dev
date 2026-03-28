@@ -6,7 +6,7 @@ import type { Config } from "../config.js";
 const baseConfig: Config = {
   llm: {
     openai: { api_key: "test-key" },
-    ollama: { base_url: "http://localhost:11434/api" },
+    ollama: { base_url: "http://localhost:11434" },
   },
   mcp_servers: {},
 };

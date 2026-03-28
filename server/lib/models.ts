@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createOllama } from "ollama-ai-provider";
 import type { Config } from "../config.js";
 import type { ModelSelection } from "../../shared/types.js";
+import { normaliseOllamaBaseUrl } from "./ollama.js";
 
 export function createModel(selection: ModelSelection, config: Config) {
   if (selection.provider === "openai") {
@@ -14,8 +15,9 @@ export function createModel(selection: ModelSelection, config: Config) {
   }
 
   if (selection.provider === "ollama") {
-    const baseURL =
-      config.llm.ollama?.base_url ?? "http://localhost:11434/api";
+    const baseURL = normaliseOllamaBaseUrl(
+      config.llm.ollama?.base_url ?? "http://localhost:11434"
+    );
     return createOllama({ baseURL })(selection.id);
   }
 

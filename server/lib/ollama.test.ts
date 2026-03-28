@@ -1,6 +1,43 @@
 import { describe, it, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { listOllamaModels } from "./ollama.js";
+import { listOllamaModels, normaliseOllamaBaseUrl } from "./ollama.js";
+
+describe("normaliseOllamaBaseUrl", () => {
+  it("appends /api when missing", () => {
+    assert.equal(
+      normaliseOllamaBaseUrl("http://localhost:11434"),
+      "http://localhost:11434/api"
+    );
+  });
+
+  it("strips trailing slash and appends /api", () => {
+    assert.equal(
+      normaliseOllamaBaseUrl("http://localhost:11434/"),
+      "http://localhost:11434/api"
+    );
+  });
+
+  it("keeps /api when already present", () => {
+    assert.equal(
+      normaliseOllamaBaseUrl("http://localhost:11434/api"),
+      "http://localhost:11434/api"
+    );
+  });
+
+  it("strips trailing slash from /api/", () => {
+    assert.equal(
+      normaliseOllamaBaseUrl("http://localhost:11434/api/"),
+      "http://localhost:11434/api"
+    );
+  });
+
+  it("works with custom host and port", () => {
+    assert.equal(
+      normaliseOllamaBaseUrl("http://custom:8080"),
+      "http://custom:8080/api"
+    );
+  });
+});
 
 describe("listOllamaModels", () => {
   it("parses /api/tags response correctly", async () => {

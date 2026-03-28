@@ -39,4 +39,4 @@ specs:
     domain: bugs
     feature: ollama-chat-404-base-url
     description: Ollama chat returns 404 due to base_url missing /api suffix normalisation
-    status: todo
+    status: done

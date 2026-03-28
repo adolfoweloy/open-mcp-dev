@@ -4,8 +4,13 @@ interface OllamaTagsResponse {
   models: Array<{ name: string }>;
 }
 
+export function normaliseOllamaBaseUrl(raw: string): string {
+  const stripped = raw.replace(/\/+$/, "");
+  return stripped.endsWith("/api") ? stripped : `${stripped}/api`;
+}
+
 export async function listOllamaModels(baseUrl: string): Promise<ModelInfo[]> {
-  const url = `${baseUrl.replace(/\/$/, "")}/api/tags`;
+  const url = `${normaliseOllamaBaseUrl(baseUrl)}/tags`;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
