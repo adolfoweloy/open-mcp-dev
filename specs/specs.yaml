@@ -15,25 +15,25 @@ specs:
     domain: bugs
     feature: missing-config-unfriendly-error
     description: Unfriendly error when config.yaml is missing on fresh checkout
-    status: todo
+    status: done 
 
   - id: bugs__example-config-servers-not-commented
     domain: bugs
     feature: example-config-servers-not-commented
     description: Example MCP servers in config.example.yaml are not commented out
-    status: todo
+    status: done 
 
   - id: bugs__config-not-found-wrong-cwd
     domain: bugs
     feature: config-not-found-wrong-cwd
     description: loadConfig() fails when CWD is not the project root (e.g. npm run dev:server)
-    status: todo
+    status: done 
 
   - id: bugs__model-change-infinite-render-loop
     domain: bugs
     feature: model-change-infinite-render-loop
     description: Infinite render loop when switching or creating conversations
-    status: todo
+    status: done 
 
   - id: bugs__ollama-chat-404-base-url
     domain: bugs
