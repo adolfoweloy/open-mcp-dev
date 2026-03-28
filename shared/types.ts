@@ -78,4 +78,5 @@ export interface ChatRequest {
   messages: UIMessage[];
   model: ModelSelection;
   selectedServers: string[];
+  disabledServers: string[];
 }

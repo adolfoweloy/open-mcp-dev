@@ -13,4 +13,5 @@ export interface Conversation {
   title: string;
   messages: UIMessage[];
   isUserRenamed?: boolean;
+  enabledServers?: string[];
 }

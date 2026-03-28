@@ -19,7 +19,7 @@ tasks:
     refs:
       - specs/servers/management/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Add `disabledServers: string[]` to the `ChatRequest` interface in `shared/types.ts`.
@@ -27,7 +27,7 @@ tasks:
     refs:
       - specs/servers/management/design.md
     priority: high
-    status: todo
+    status: done
 
   # --- Backend tool-call blocking ---
   - task: >
