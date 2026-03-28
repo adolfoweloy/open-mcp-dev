@@ -43,6 +43,7 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 - Conversation history stored in `localStorage` (key `mcp-chat:conversations`), max 50 conversations
 - `Conversation` type includes `isUserRenamed?: boolean` (defaults to `false` when absent) — controls whether auto-title derivation in `handleMessagesChange` is skipped
 - OAuth tokens in-memory `Map` on the server process
+- MCP server configs persisted to `config.yaml` via a promise-chained write queue in `ConfigWriter` (serialises concurrent writes)
 
 ## MCP Transport
 
@@ -62,8 +63,21 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 - Position using `getBoundingClientRect` on the trigger element; `position: fixed` on the portal element
 - Close on `mousedown` outside (not `click`) to ensure correct event ordering before sibling `onClick` handlers
 
+## MCP Server Registry
+
+- `MCPClientManager` owns an internal `serverConfigs: Map<string, McpServerConfig>` as the authoritative live state
+- `addServer / updateServer / removeServer` methods allow hot-reload without process restart
+- `removeServer` must clear all 5 OAuth state Maps (`oauthClients`, `tokenSets`, `authLocks`, `pendingStates`, `oauthServerUrls`) keyed by server id to prevent dangling OAuth state
+- `GET /api/config/servers` scrubs sensitive fields (`client_secret`, `access_token`, `refresh_token`) — returns boolean presence flags instead; the existing invariant "tokens never sent to frontend" is preserved
+
+## Settings UI Pattern
+
+- Settings gear icon fixed at bottom-left of sidebar → opens a slide-over drawer (same UX pattern as ChatGPT/Claude Desktop)
+- Drawer-level and full-page modals rendered via `ReactDOM.createPortal` into `document.body` (follows existing dropdown portal pattern)
+
 ## Error Handling
 
 - MCP connection failures at startup: warn and continue (non-fatal)
 - Streaming tool call failures: surfaced inline in the chat thread
 - 401 from MCP tool calls: automatic token refresh attempt, then rethrow
+- Hot-reload connection failures: surfaced as per-server error badge in settings drawer; non-fatal

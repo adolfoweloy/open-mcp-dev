@@ -52,3 +52,9 @@ specs:
     feature: chat_options
     description: Rename (modal dialog) and delete (immediate) actions for conversations via per-item meatball menu; supersedes chat__chatmanagement
     status: done
+
+  - id: root__server_settings_ui
+    domain: root
+    feature: server_settings_ui
+    description: Settings drawer (gear icon, bottom-left sidebar) for adding, editing, and deleting MCP servers from the UI; writes to config.yaml, hot-reloads connections via MCPClientManager CRUD methods
+    status: todo
