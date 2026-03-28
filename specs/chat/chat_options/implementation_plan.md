@@ -14,7 +14,7 @@ tasks:
     refs:
       - specs/chat/chat_options/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Fix conversation isolation in `App.tsx` by adding `key={activeConversation.id}`
