@@ -110,7 +110,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Add duration tracking to MCP tool calls in mcp-manager.ts. In the `execute`

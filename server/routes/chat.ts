@@ -66,12 +66,18 @@ export function createChatRouter(
 
           const tools = await mcpManager.getToolsForAiSdk(selectedServers, emitEvent, disabledServers ?? []);
 
-          // Emit LLM request event before streamText
+          const toolNames = Object.keys(tools);
+          const messageCount = (messages as unknown[]).length;
+          let stepCount = 1;
+          let stepStartTime = Date.now();
+
+          // Emit step-start for step 1 before streamText
           emitDebug({
             actor: "llm",
-            type: "request",
-            summary: `LLM request: ${model.provider}/${model.id}`,
-            payload: serializePayload({ model: model.id, system: systemPrompt, messages }),
+            type: "step-start",
+            step: 1,
+            summary: `Step 1: ${model.provider}/${model.id} — ${toolNames.length} tools, ${messageCount} messages`,
+            payload: serializePayload({ model: model.id, step: 1, toolNames, messageCount }),
           });
 
           const result = streamText({
@@ -81,13 +87,42 @@ export function createChatRouter(
             tools,
             maxSteps: 20,
             onError: (err) => console.error("[chat]", err),
-            onFinish: ({ finishReason, usage, text }) => {
+            onStepFinish: ({ toolCalls, finishReason, usage }) => {
+              const durationMs = Date.now() - stepStartTime;
+              const currentStep = stepCount;
+
+              if (finishReason === "tool-calls" && toolCalls.length > 0) {
+                emitDebug({
+                  actor: "llm",
+                  type: "tool-decision",
+                  step: currentStep,
+                  summary: `Tools chosen: ${toolCalls.map((tc) => tc.toolName).join(", ")}`,
+                  payload: serializePayload(
+                    toolCalls.map((tc) => ({ name: tc.toolName, args: tc.args }))
+                  ),
+                });
+              }
+
               emitDebug({
                 actor: "llm",
-                type: "response",
-                summary: `LLM response: finishReason=${finishReason}`,
-                payload: serializePayload({ finishReason, usage, text }),
+                type: "step-finish",
+                step: currentStep,
+                durationMs,
+                summary: `Step ${currentStep} finish: ${finishReason} (${durationMs}ms)`,
+                payload: serializePayload({ step: currentStep, finishReason, usage, durationMs }),
               });
+
+              if (finishReason === "tool-calls") {
+                stepCount++;
+                stepStartTime = Date.now();
+                emitDebug({
+                  actor: "llm",
+                  type: "step-start",
+                  step: stepCount,
+                  summary: `Step ${stepCount}: ${model.provider}/${model.id} — tool results included`,
+                  payload: serializePayload({ model: model.id, step: stepCount }),
+                });
+              }
             },
           });
           result.mergeIntoDataStream(dataStreamWriter);

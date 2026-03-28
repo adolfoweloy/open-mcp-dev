@@ -370,7 +370,7 @@ describe("chat route debug event emission", () => {
     mock.restoreAll();
   });
 
-  it("(1) emits LLM request debug event before streamText", async () => {
+  it("(1) emits LLM step-start debug event before streamText", async () => {
     globalThis.fetch = mock.fn(async () =>
       new Response(makeOpenAiSseBody(), {
         status: 200,
@@ -386,16 +386,18 @@ describe("chat route debug event emission", () => {
     });
 
     const debugEvents = extractDebugEvents(chunks.join(""));
-    const requestEvents = debugEvents.filter(
-      (e) => e.event?.actor === "llm" && e.event?.type === "request"
+    const stepStartEvents = debugEvents.filter(
+      (e) => e.event?.actor === "llm" && e.event?.type === "step-start"
     );
     assert.ok(
-      requestEvents.length >= 1,
-      `expected at least one LLM request debug event; got ${debugEvents.length} debug events total`
+      stepStartEvents.length >= 1,
+      `expected at least one LLM step-start debug event; got ${debugEvents.length} debug events total`
     );
+    // Step 1 should have step=1
+    assert.equal(stepStartEvents[0].event.step, 1, "first step-start should have step=1");
   });
 
-  it("(1) emits LLM response debug event in onFinish", async () => {
+  it("(1) emits LLM step-finish debug event in onStepFinish", async () => {
     globalThis.fetch = mock.fn(async () =>
       new Response(makeOpenAiSseBody("hello world"), {
         status: 200,
@@ -411,16 +413,16 @@ describe("chat route debug event emission", () => {
     });
 
     const debugEvents = extractDebugEvents(chunks.join(""));
-    const responseEvents = debugEvents.filter(
-      (e) => e.event?.actor === "llm" && e.event?.type === "response"
+    const stepFinishEvents = debugEvents.filter(
+      (e) => e.event?.actor === "llm" && e.event?.type === "step-finish"
     );
     assert.ok(
-      responseEvents.length >= 1,
-      `expected at least one LLM response debug event; got debug events: ${JSON.stringify(debugEvents.map((e) => ({ actor: e.event?.actor, type: e.event?.type })))}`
+      stepFinishEvents.length >= 1,
+      `expected at least one LLM step-finish debug event; got debug events: ${JSON.stringify(debugEvents.map((e) => ({ actor: e.event?.actor, type: e.event?.type })))}`
     );
   });
 
-  it("(5) LLM request event payload contains model id", async () => {
+  it("(5) LLM step-start event payload contains model id", async () => {
     globalThis.fetch = mock.fn(async () =>
       new Response(makeOpenAiSseBody(), {
         status: 200,
@@ -436,13 +438,13 @@ describe("chat route debug event emission", () => {
     });
 
     const debugEvents = extractDebugEvents(chunks.join(""));
-    const requestEvent = debugEvents.find(
-      (e) => e.event?.actor === "llm" && e.event?.type === "request"
+    const stepStartEvent = debugEvents.find(
+      (e) => e.event?.actor === "llm" && e.event?.type === "step-start"
     );
-    assert.ok(requestEvent, "LLM request debug event should exist");
-    assert.equal(typeof requestEvent.event.payload, "string", "payload should be a string");
+    assert.ok(stepStartEvent, "LLM step-start debug event should exist");
+    assert.equal(typeof stepStartEvent.event.payload, "string", "payload should be a string");
     assert.ok(
-      (requestEvent.event.payload as string).includes("gpt-4o"),
+      (stepStartEvent.event.payload as string).includes("gpt-4o"),
       "payload should include model id"
     );
   });
