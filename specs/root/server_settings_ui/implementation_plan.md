@@ -167,7 +167,7 @@ tasks:
       - specs/root/server_settings_ui/requirements.md
       - specs/architecture.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test SettingsDrawer: (a) renders server list with correct names, type badges, and
@@ -177,7 +177,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # --- Server Form Modal ---
   - task: >
