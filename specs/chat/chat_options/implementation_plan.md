@@ -37,7 +37,7 @@ tasks:
       - specs/chat/chat_options/design.md
       - specs/chat/chat_options/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test conversation isolation and handleMessagesChange guards: (1) switching

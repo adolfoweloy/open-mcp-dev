@@ -13,6 +13,14 @@ import { Chat } from "./components/Chat";
 
 const TITLE_MAX_LENGTH = 60;
 
+function deriveTitle(messages: UIMessage[]): string {
+  const firstUserMsg = messages.find((m) => m.role === "user");
+  const textPart = (
+    firstUserMsg?.parts as Array<{ type: string; text?: string }> | undefined
+  )?.find((p) => p.type === "text");
+  return textPart?.text ? textPart.text.slice(0, TITLE_MAX_LENGTH) : "New Chat";
+}
+
 export function App() {
   const [conversations, setConversations] = useState<Conversation[]>(() =>
     loadConversations()
@@ -53,16 +61,17 @@ export function App() {
     (messages: UIMessage[]) => {
       if (!activeConversationId) return;
 
-      // Derive title from first user message text (truncated)
-      const firstUserMsg = messages.find((m) => m.role === "user");
-      const textPart = (
-        firstUserMsg?.parts as Array<{ type: string; text?: string }> | undefined
-      )?.find((p) => p.type === "text");
-      const title = textPart?.text
-        ? textPart.text.slice(0, TITLE_MAX_LENGTH)
-        : "New Chat";
-
       setConversations((prev) => {
+        const target = prev.find((c) => c.id === activeConversationId);
+        if (!target) return prev; // conversation was deleted — discard update
+        if (target.isUserRenamed) {
+          const updated = prev.map((c) =>
+            c.id === activeConversationId ? { ...c, messages } : c
+          );
+          saveConversations(updated);
+          return updated;
+        }
+        const title = deriveTitle(messages);
         const updated = prev.map((c) =>
           c.id === activeConversationId ? { ...c, messages, title } : c
         );
