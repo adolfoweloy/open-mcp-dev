@@ -1,4 +1,4 @@
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, randomUUID } from "crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -8,6 +8,18 @@ import type { ToolSet } from "ai";
 import { jsonSchema } from "ai";
 import type { McpServerConfig } from "../config.js";
 import type { McpServerStatus } from "../../shared/types.js";
+
+function serializePayload(data: unknown): string {
+  if (data === undefined || data === null) return "";
+  let raw: string;
+  try {
+    raw = JSON.stringify(data, null, 2) ?? "";
+  } catch {
+    return "";
+  }
+  if (raw.length > 10_240) return raw.slice(0, 10_240) + "\n[TRUNCATED]";
+  return raw;
+}
 
 export class OAuthDiscoveryError extends Error {
   constructor(message: string) {
@@ -359,6 +371,19 @@ export class MCPClientManager {
         const existingLock = this.authLocks.get(serverId);
         if (!existingLock || !existingLock.inProgress) {
           console.info(`[mcp-manager] [${serverId}] Token refresh start`);
+          try {
+            emitEvent?.({
+              type: "debug",
+              event: {
+                id: randomUUID(),
+                timestamp: new Date().toISOString(),
+                actor: "oauth",
+                type: "oauth-refresh",
+                summary: `OAuth token refresh: ${serverId}`,
+                payload: serializePayload({ serverId }),
+              },
+            });
+          } catch { /* swallow */ }
           await this._tryRefreshToken(serverId, tokenSet);
         }
       }
@@ -394,6 +419,19 @@ export class MCPClientManager {
         `[mcp-manager] [${serverId}] 401 received, emitting auth_required`
       );
       emitEvent?.({ type: "auth_required", serverId });
+      try {
+        emitEvent?.({
+          type: "debug",
+          event: {
+            id: randomUUID(),
+            timestamp: new Date().toISOString(),
+            actor: "oauth",
+            type: "oauth-start",
+            summary: `OAuth flow started: ${serverId}`,
+            payload: serializePayload({ serverId }),
+          },
+        });
+      } catch { /* swallow */ }
       await new Promise<void>((resolve, reject) => {
         lock!.queue.push({ resolve, reject });
       });
@@ -627,19 +665,71 @@ export class MCPClientManager {
         toolSet[key] = {
           description: tool.description ?? "",
           parameters: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
-          execute: async (args: unknown) => {
+          execute: async (args: unknown, { toolCallId }: { toolCallId?: string } = {}) => {
             if (disabledServers?.includes(serverId)) {
               return { error: `Server '${serverId}' is disabled for this conversation.` };
             }
-            return this.callWithAuth(
-              serverId,
-              () =>
-                client.callTool({
-                  name: tool.name,
-                  arguments: args as Record<string, unknown>,
-                }),
-              emitEvent
-            );
+
+            try {
+              emitEvent?.({
+                type: "debug",
+                event: {
+                  id: randomUUID(),
+                  timestamp: new Date().toISOString(),
+                  actor: "mcp-client",
+                  type: "tool-call",
+                  summary: `Tool call: ${tool.name}`,
+                  payload: serializePayload(args),
+                  correlationId: toolCallId,
+                },
+              });
+            } catch { /* swallow */ }
+
+            let result: unknown;
+            try {
+              result = await this.callWithAuth(
+                serverId,
+                () =>
+                  client.callTool({
+                    name: tool.name,
+                    arguments: args as Record<string, unknown>,
+                  }),
+                emitEvent
+              );
+            } catch (err) {
+              try {
+                emitEvent?.({
+                  type: "debug",
+                  event: {
+                    id: randomUUID(),
+                    timestamp: new Date().toISOString(),
+                    actor: "error",
+                    type: "tool-error",
+                    summary: `Tool error: ${tool.name} — ${(err as Error).message}`,
+                    payload: serializePayload({ error: (err as Error).message }),
+                    correlationId: toolCallId,
+                  },
+                });
+              } catch { /* swallow */ }
+              throw err;
+            }
+
+            try {
+              emitEvent?.({
+                type: "debug",
+                event: {
+                  id: randomUUID(),
+                  timestamp: new Date().toISOString(),
+                  actor: "mcp-server",
+                  type: "tool-result",
+                  summary: `Tool result: ${tool.name}`,
+                  payload: serializePayload(result),
+                  correlationId: toolCallId,
+                },
+              });
+            } catch { /* swallow */ }
+
+            return result;
           },
         };
       }

@@ -720,7 +720,8 @@ describe("MCPClientManager", () => {
       const lock = getAuthLock(manager, "srv");
       assert.ok(lock, "authLock should exist");
       assert.equal(lock.inProgress, true);
-      assert.equal(events.length, 1);
+      // auth_required event + oauth-start debug event
+      assert.ok(events.length >= 1, "at least one event should have been emitted");
       assert.deepEqual(events[0], { type: "auth_required", serverId: "srv" });
 
       // Resolve the lock queue to unblock the promise
@@ -745,7 +746,8 @@ describe("MCPClientManager", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      assert.equal(events.length, 1, "auth_required should have been emitted");
+      assert.ok(events.length >= 1, "auth_required should have been emitted");
+      assert.deepEqual(events[0], { type: "auth_required", serverId: "srv" });
 
       // Simulate completeOAuthFlow resolving the lock
       await manager.completeOAuthFlow("srv", { accessToken: "new-token" });

@@ -89,7 +89,7 @@ tasks:
       - specs/chat/debug/requirements.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test server-side debug event emission: (1) chat request emits LLM request event before
