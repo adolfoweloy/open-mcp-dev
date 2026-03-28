@@ -1247,4 +1247,64 @@ describe("MCPClientManager", () => {
       assert.deepEqual(manager.getServerConfigs().get("srv-b"), cfgBUpdated);
     });
   });
+
+  describe("getToolsForAiSdk — disabled server blocking", () => {
+    it("(1) tool call from an enabled server executes normally", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "do_thing", result: { value: 42 } },
+      ]);
+      await manager.connectWithTransport("enabled-srv", transport);
+
+      const tools = await manager.getToolsForAiSdk(["enabled-srv"], undefined, []);
+      const result = await tools["enabled-srv__do_thing"].execute!({}, {} as never);
+      // Should have content array from the mock MCP server (no error)
+      assert.ok(!("error" in (result as object)), "expected no error for enabled server");
+    });
+
+    it("(2) tool call from a disabled server returns error string without execution", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "do_thing", result: { value: 42 } },
+      ]);
+      await manager.connectWithTransport("disabled-srv", transport);
+
+      const tools = await manager.getToolsForAiSdk(["disabled-srv"], undefined, ["disabled-srv"]);
+      const result = await tools["disabled-srv__do_thing"].execute!({}, {} as never);
+      assert.deepEqual(result, {
+        error: "Server 'disabled-srv' is disabled for this conversation.",
+      });
+    });
+
+    it("(3) missing disabledServers defaults to empty array (no blocking)", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "do_thing", result: { value: 99 } },
+      ]);
+      await manager.connectWithTransport("srv", transport);
+
+      // Pass undefined for disabledServers
+      const tools = await manager.getToolsForAiSdk(["srv"], undefined, undefined);
+      const result = await tools["srv__do_thing"].execute!({}, {} as never);
+      assert.ok(!("error" in (result as object)), "expected no error when disabledServers is undefined");
+    });
+
+    it("(4) server ID is correctly extracted from namespaced tool name with double-underscore", async () => {
+      const manager = new MCPClientManager();
+      // Use a server ID that contains underscores to verify split('__')[0] works correctly
+      const transport = await createMockServer([
+        { name: "my__tool", result: {} },
+      ]);
+      await manager.connectWithTransport("my-server", transport);
+
+      // The key will be "my-server__my__tool"; split('__')[0] should give "my-server"
+      const tools = await manager.getToolsForAiSdk(["my-server"], undefined, ["my-server"]);
+      const toolKey = "my-server__my__tool";
+      assert.ok(toolKey in tools, `expected tool key "${toolKey}" to exist`);
+      const result = await tools[toolKey].execute!({}, {} as never);
+      assert.deepEqual(result, {
+        error: "Server 'my-server' is disabled for this conversation.",
+      });
+    });
+  });
 });

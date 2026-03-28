@@ -52,7 +52,7 @@ tasks:
     refs:
       - specs/servers/management/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- App.tsx enabledServers/disabledServers wiring ---
   - task: >
