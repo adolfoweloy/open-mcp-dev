@@ -99,7 +99,7 @@ tasks:
     refs:
       - specs/chat/chat_options/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- MEDIUM PRIORITY: ConversationItem component with meatball menu ---
 

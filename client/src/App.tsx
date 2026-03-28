@@ -153,6 +153,28 @@ export function App() {
               >
                 {conv.title}
               </button>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  renameConversation(conv.id, (formData.get("title") as string | null) ?? "");
+                }}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <input
+                  name="title"
+                  aria-label={`Rename input ${conv.id}`}
+                  defaultValue={conv.title}
+                  style={{ width: "80px", fontSize: "12px" }}
+                />
+                <button
+                  type="submit"
+                  aria-label={`Rename ${conv.title}`}
+                  style={{ padding: "4px 8px", border: "none", cursor: "pointer", background: "transparent" }}
+                >
+                  ✏
+                </button>
+              </form>
               <button
                 onClick={() => deleteConversation(conv.id)}
                 aria-label={`Delete ${conv.title}`}
