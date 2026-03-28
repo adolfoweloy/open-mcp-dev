@@ -51,10 +51,12 @@ export async function autoConnectServers(
         console.log(
           `[startup] Skipping OAuth server "${id}" (will connect after auth)`
         );
+        // Register config even if we skip connecting
+        mcpManager.getServerConfigs().set(id, serverConfig);
         return;
       }
       try {
-        await mcpManager.connectToServer(id, serverConfig);
+        await mcpManager.addServer(id, serverConfig);
         console.log(`[startup] Connected to MCP server "${id}"`);
       } catch (err) {
         console.warn(

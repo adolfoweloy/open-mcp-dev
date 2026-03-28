@@ -53,7 +53,7 @@ tasks:
       - specs/root/server_settings_ui/requirements.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test MCPClientManager CRUD: (a) addServer registers config and calls connectToServer,

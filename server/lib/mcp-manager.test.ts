@@ -210,56 +210,57 @@ describe("MCPClientManager", () => {
   });
 
   describe("getServerStatuses", () => {
-    it("returns correct connected and requiresOAuth flags", async () => {
+    it("returns correct connected and requiresOAuth flags using internal serverConfigs", async () => {
       const manager = new MCPClientManager();
       const t1 = await createMockServer([]);
       await manager.connectWithTransport("connected-srv", t1);
 
-      const configs: Record<string, McpServerConfig> = {
-        "connected-srv": { type: "stdio", command: "echo" },
-        "disconnected-srv": { type: "stdio", command: "echo" },
-        "oauth-srv": {
-          type: "http",
-          url: "https://example.com/mcp",
-          oauth: true,
-        },
-      };
+      // Populate serverConfigs via addServer for disconnected and oauth servers
+      // For connected-srv we use connectWithTransport so we manually register config
+      manager.getServerConfigs().set("connected-srv", { type: "stdio", command: "echo" });
+      manager.getServerConfigs().set("disconnected-srv", { type: "stdio", command: "echo" });
+      manager.getServerConfigs().set("oauth-srv", {
+        type: "http",
+        url: "https://example.com/mcp",
+        oauth: true,
+      });
 
-      const statuses = manager.getServerStatuses(configs);
+      const statuses = manager.getServerStatuses();
       assert.equal(statuses.length, 3);
 
       const connected = statuses.find((s) => s.id === "connected-srv");
       assert.ok(connected);
       assert.equal(connected.connected, true);
       assert.equal(connected.requiresOAuth, false);
+      assert.equal(connected.type, "stdio");
 
       const disconnected = statuses.find((s) => s.id === "disconnected-srv");
       assert.ok(disconnected);
       assert.equal(disconnected.connected, false);
       assert.equal(disconnected.requiresOAuth, false);
+      assert.equal(disconnected.type, "stdio");
 
       const oauth = statuses.find((s) => s.id === "oauth-srv");
       assert.ok(oauth);
       assert.equal(oauth.connected, false);
       assert.equal(oauth.requiresOAuth, true);
+      assert.equal(oauth.type, "http");
     });
   });
 
   describe("requiresOAuth", () => {
-    it("returns true only for http servers with oauth:true", () => {
+    it("returns true only for http servers with oauth:true using internal serverConfigs", () => {
       const manager = new MCPClientManager();
-      const configs: Record<string, McpServerConfig> = {
-        "stdio-srv": { type: "stdio", command: "echo" },
-        "http-no-oauth": { type: "http", url: "http://example.com" },
-        "http-oauth": {
-          type: "http",
-          url: "http://example.com",
-          oauth: true,
-        },
-      };
-      assert.equal(manager.requiresOAuth("stdio-srv", configs), false);
-      assert.equal(manager.requiresOAuth("http-no-oauth", configs), false);
-      assert.equal(manager.requiresOAuth("http-oauth", configs), true);
+      manager.getServerConfigs().set("stdio-srv", { type: "stdio", command: "echo" });
+      manager.getServerConfigs().set("http-no-oauth", { type: "http", url: "http://example.com" });
+      manager.getServerConfigs().set("http-oauth", {
+        type: "http",
+        url: "http://example.com",
+        oauth: true,
+      });
+      assert.equal(manager.requiresOAuth("stdio-srv"), false);
+      assert.equal(manager.requiresOAuth("http-no-oauth"), false);
+      assert.equal(manager.requiresOAuth("http-oauth"), true);
     });
   });
 

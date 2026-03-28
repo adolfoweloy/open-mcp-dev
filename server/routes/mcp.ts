@@ -6,7 +6,7 @@ export function createMcpRouter(config: Config, mcpManager: MCPClientManager) {
   const router = Router();
 
   router.get("/mcp/servers", (_req, res) => {
-    const statuses = mcpManager.getServerStatuses(config.mcp_servers);
+    const statuses = mcpManager.getServerStatuses();
     res.json(statuses);
   });
 

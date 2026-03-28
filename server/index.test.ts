@@ -23,11 +23,20 @@ function makeMcpManager(connectBehavior?: (id: string) => Promise<void>): {
   const calls: ConnectCall[] = [];
   const connected = new Set<string>();
 
+  const serverConfigs = new Map();
   const manager: MCPClientManager = {
     connectToServer: async (id: string) => {
       if (connectBehavior) {
         await connectBehavior(id);
       }
+      connected.add(id);
+      calls.push({ id, connected: true });
+    },
+    addServer: async (id: string, config: unknown) => {
+      if (connectBehavior) {
+        await connectBehavior(id);
+      }
+      serverConfigs.set(id, config);
       connected.add(id);
       calls.push({ id, connected: true });
     },
@@ -37,6 +46,7 @@ function makeMcpManager(connectBehavior?: (id: string) => Promise<void>): {
     isConnected: (id: string) => connected.has(id),
     requiresOAuth: () => false,
     getServerStatuses: () => [],
+    getServerConfigs: () => serverConfigs,
     getToolsForAiSdk: async () => ({}),
   } as unknown as MCPClientManager;
 
@@ -202,10 +212,15 @@ describe("autoConnectServers", () => {
         if (id === "bad_server") throw new Error("connection refused");
         goodConnected = true;
       },
+      addServer: async (id: string) => {
+        if (id === "bad_server") throw new Error("connection refused");
+        goodConnected = true;
+      },
       disconnectServer: async () => {},
       isConnected: () => false,
       requiresOAuth: () => false,
       getServerStatuses: () => [],
+      getServerConfigs: () => new Map(),
       getToolsForAiSdk: async () => ({}),
     } as unknown as MCPClientManager;
 

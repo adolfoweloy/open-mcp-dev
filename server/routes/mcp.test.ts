@@ -17,20 +17,31 @@ function makeConfig(overrides: Partial<Config["mcp_servers"]> = {}): Config {
   } as Config;
 }
 
-function makeMcpManager(overrides: Partial<MCPClientManager> = {}): MCPClientManager {
+import type { McpServerConfig } from "../config.js";
+
+function makeMcpManager(
+  overrides: Partial<MCPClientManager> = {},
+  initialConfigs: Record<string, McpServerConfig> = {}
+): MCPClientManager {
   const connected = new Set<string>();
+  const serverConfigs = new Map<string, McpServerConfig>(Object.entries(initialConfigs));
   return {
     connectToServer: async (id: string) => { connected.add(id); },
+    addServer: async (id: string, config: McpServerConfig) => {
+      serverConfigs.set(id, config);
+      connected.add(id);
+    },
     disconnectServer: async (id: string) => { connected.delete(id); },
     isConnected: (id: string) => connected.has(id),
-    requiresOAuth: (_id: string, _configs: Record<string, unknown>) => false,
-    getServerStatuses: (configs: Record<string, unknown>): McpServerStatus[] =>
-      Object.keys(configs).map((id) => ({
+    requiresOAuth: (_id: string) => false,
+    getServerStatuses: (): McpServerStatus[] =>
+      Array.from(serverConfigs.entries()).map(([id, cfg]) => ({
         id,
         connected: connected.has(id),
-        requiresOAuth: false,
-        type: "stdio" as const,
+        requiresOAuth: cfg.type === "http" && (cfg as { oauth?: boolean }).oauth === true,
+        type: cfg.type,
       })),
+    getServerConfigs: () => serverConfigs,
     getToolsForAiSdk: async () => ({}),
     ...overrides,
   } as unknown as MCPClientManager;
@@ -112,7 +123,7 @@ describe("createMcpRouter", () => {
   describe("GET /mcp/servers", () => {
     it("returns correct server statuses", async () => {
       const config = makeConfig();
-      const manager = makeMcpManager();
+      const manager = makeMcpManager({}, config.mcp_servers);
       const router = createMcpRouter(config, manager);
 
       const { status, json } = await callRoute(router, "GET", "/mcp/servers");
@@ -128,7 +139,7 @@ describe("createMcpRouter", () => {
 
     it("shows connected=true for connected servers", async () => {
       const config = makeConfig();
-      const manager = makeMcpManager();
+      const manager = makeMcpManager({}, config.mcp_servers);
       // Pre-connect stdio_server
       await manager.connectToServer("stdio_server", config.mcp_servers["stdio_server"]!);
       const router = createMcpRouter(config, manager);

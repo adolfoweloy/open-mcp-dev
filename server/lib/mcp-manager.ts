@@ -65,6 +65,8 @@ export class MCPClientManager {
   private authLocks = new Map<string, AuthLock>();
   private pendingStates = new Map<string, PendingAuthState>();
   private oauthServerUrls = new Map<string, string>();
+  private serverConfigs = new Map<string, McpServerConfig>();
+  private serverErrors = new Map<string, string>();
 
   async connectToServer(
     id: string,
@@ -75,9 +77,15 @@ export class MCPClientManager {
     const inflight = this.pending.get(id);
     if (inflight) return inflight;
 
-    const promise = this._doConnect(id, serverConfig, accessToken).finally(() =>
-      this.pending.delete(id)
-    );
+    const promise = this._doConnect(id, serverConfig, accessToken)
+      .then(() => {
+        this.serverErrors.delete(id);
+      })
+      .catch((err: Error) => {
+        this.serverErrors.set(id, err.message);
+        throw err;
+      })
+      .finally(() => this.pending.delete(id));
     this.pending.set(id, promise);
     return promise;
   }
@@ -486,6 +494,44 @@ export class MCPClientManager {
     }
   }
 
+  /** Register config for a server and connect to it. */
+  async addServer(id: string, config: McpServerConfig): Promise<void> {
+    this.serverConfigs.set(id, config);
+    await this.connectToServer(id, config);
+  }
+
+  /** Update an existing server's config and reconnect. If newId differs, rename. */
+  async updateServer(oldId: string, newId: string, config: McpServerConfig): Promise<void> {
+    if (oldId !== newId) {
+      await this.removeServer(oldId);
+      await this.addServer(newId, config);
+    } else {
+      await this.disconnectServer(oldId);
+      this.serverConfigs.set(oldId, config);
+      await this.connectToServer(oldId, config);
+    }
+  }
+
+  /** Disconnect a server and clear all its state. */
+  async removeServer(id: string): Promise<void> {
+    await this.disconnectServer(id);
+    this.serverConfigs.delete(id);
+    this.serverErrors.delete(id);
+    this.oauthClients.delete(id);
+    this.tokenSets.delete(id);
+    this.authLocks.delete(id);
+    this.pendingStates.forEach((_, state) => {
+      if (this.pendingStates.get(state)?.serverId === id) {
+        this.pendingStates.delete(state);
+      }
+    });
+    this.oauthServerUrls.delete(id);
+  }
+
+  getServerConfigs(): Map<string, McpServerConfig> {
+    return this.serverConfigs;
+  }
+
   getPendingState(state: string): PendingAuthState | undefined {
     return this.pendingStates.get(state);
   }
@@ -514,18 +560,25 @@ export class MCPClientManager {
     return this.clients.has(id);
   }
 
-  requiresOAuth(id: string, configs: Record<string, McpServerConfig>): boolean {
-    const cfg = configs[id];
+  requiresOAuth(id: string): boolean {
+    const cfg = this.serverConfigs.get(id);
     return cfg?.type === "http" && cfg.oauth === true;
   }
 
-  getServerStatuses(configs: Record<string, McpServerConfig>): McpServerStatus[] {
-    return Object.keys(configs).map((id) => ({
-      id,
-      connected: this.isConnected(id),
-      requiresOAuth: this.requiresOAuth(id, configs),
-      type: configs[id]?.type ?? "stdio",
-    }));
+  getServerStatuses(): McpServerStatus[] {
+    return Array.from(this.serverConfigs.entries()).map(([id, cfg]) => {
+      const status: McpServerStatus = {
+        id,
+        connected: this.isConnected(id),
+        requiresOAuth: cfg.type === "http" && cfg.oauth === true,
+        type: cfg.type,
+      };
+      const err = this.serverErrors.get(id);
+      if (err !== undefined) {
+        status.error = err;
+      }
+      return status;
+    });
   }
 
   getClient(id: string): Client | undefined {
