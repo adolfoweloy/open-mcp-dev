@@ -34,7 +34,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/design.md
     priority: high
-    status: todo
+    status: done
 
   # --- MCPClientManager CRUD ---
   - task: >
