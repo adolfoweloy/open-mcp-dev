@@ -198,7 +198,7 @@ tasks:
       - specs/root/server_settings_ui/design.md
       - specs/root/server_settings_ui/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test ServerFormModal: (a) renders stdio-specific fields when stdio selected,
@@ -211,7 +211,7 @@ tasks:
     refs:
       - specs/root/server_settings_ui/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # --- Gear Button ---
   - task: >
