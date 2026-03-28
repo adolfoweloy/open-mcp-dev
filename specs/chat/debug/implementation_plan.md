@@ -29,7 +29,7 @@ tasks:
     refs:
       - specs/chat/debug/design.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test DebugEvent types and serializePayload helper: (1) payload under 10240 chars is

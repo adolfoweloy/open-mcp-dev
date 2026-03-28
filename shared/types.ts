@@ -80,3 +80,16 @@ export interface ChatRequest {
   selectedServers: string[];
   disabledServers: string[];
 }
+
+export interface StreamDebugEvent {
+  type: "debug";
+  event: {
+    id: string;
+    timestamp: string;
+    actor: string;
+    type: string;
+    summary: string;
+    payload?: string;
+    correlationId?: string;
+  };
+}
