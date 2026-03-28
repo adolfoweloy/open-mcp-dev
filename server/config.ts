@@ -1,29 +1,11 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { load } from "js-yaml";
-import type { ModelSelection } from "../shared/types.js";
+import type { ModelSelection, McpServerConfig } from "../shared/types.js";
+
+export type { McpServerConfig };
 
 const DEFAULT_CONFIG_PATH = resolve(import.meta.dirname, "..", "config.yaml");
-
-export type McpServerConfig =
-  | {
-      type: "stdio";
-      command: string;
-      args?: string[];
-      env?: Record<string, string>;
-      timeout?: number;
-    }
-  | {
-      type: "http";
-      url: string;
-      oauth?: boolean;
-      client_id?: string;
-      client_secret?: string;
-      access_token?: string;
-      refresh_token?: string;
-      prefer_sse?: boolean;
-      timeout?: number;
-    };
 
 export interface Config {
   llm: {

@@ -524,6 +524,7 @@ export class MCPClientManager {
       id,
       connected: this.isConnected(id),
       requiresOAuth: this.requiresOAuth(id, configs),
+      type: configs[id]?.type ?? "stdio",
     }));
   }
 

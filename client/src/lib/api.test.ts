@@ -51,7 +51,7 @@ describe("fetchModels", () => {
 describe("fetchServers", () => {
   it("sends GET /api/mcp/servers and returns parsed JSON", async () => {
     const servers: McpServerStatus[] = [
-      { id: "my-server", connected: true, requiresOAuth: false },
+      { id: "my-server", connected: true, requiresOAuth: false, type: "stdio" as const },
     ];
     mockFetch.mockResolvedValueOnce(makeResponse(200, servers));
 

@@ -17,10 +17,10 @@ const mockDisconnect = vi.mocked(disconnectServer);
 const mockStartOAuthConnect = vi.mocked(startOAuthConnect);
 
 function connected(id: string, requiresOAuth = false): McpServerStatus {
-  return { id, connected: true, requiresOAuth };
+  return { id, connected: true, requiresOAuth, type: "stdio" };
 }
 function disconnectedServer(id: string, requiresOAuth = false): McpServerStatus {
-  return { id, connected: false, requiresOAuth };
+  return { id, connected: false, requiresOAuth, type: "stdio" };
 }
 
 beforeEach(() => {

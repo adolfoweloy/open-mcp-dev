@@ -29,6 +29,7 @@ function makeMcpManager(overrides: Partial<MCPClientManager> = {}): MCPClientMan
         id,
         connected: connected.has(id),
         requiresOAuth: false,
+        type: "stdio" as const,
       })),
     getToolsForAiSdk: async () => ({}),
     ...overrides,

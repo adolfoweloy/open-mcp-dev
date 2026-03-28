@@ -25,7 +25,7 @@ tasks:
       - specs/root/server_settings_ui/design.md
       - specs/architecture.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test shared types: verify McpServerStatus includes type and error fields via a
