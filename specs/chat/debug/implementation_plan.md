@@ -4,7 +4,7 @@ overview: >
   (LLM calls, MCP tool calls, OAuth events, errors) with actor color-coding, expandable
   payloads, and NDJSON download. Server emits debug events through the Vercel AI SDK data
   stream; frontend consumes them via a split DebugContext and renders in a DebugPanel component.
-status: todo
+status: done
 acceptance_criteria:
   - Debug panel opens/closes via a toggle handle on the right edge of the chat area; chat area shrinks to accommodate (no overlay)
   - LLM request and response events appear in the log with model id, token usage, and finish reason
@@ -168,7 +168,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test DebugPanel: (1) renders event list from useDebugLog, (2) each entry shows formatted
@@ -179,7 +179,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # --- DebugToggleHandle ---
   - task: >
@@ -192,7 +192,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test DebugToggleHandle: (1) renders and is visible, (2) clicking calls onToggle,
@@ -200,7 +200,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # --- Download functionality ---
   - task: >
@@ -213,7 +213,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: low
-    status: todo
+    status: done
 
   - task: >
       Test NDJSON download: (1) download produces valid NDJSON with one event per line,
@@ -222,4 +222,4 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: low
-    status: todo
+    status: done

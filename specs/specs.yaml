@@ -69,4 +69,4 @@ specs:
     domain: chat
     feature: debug
     description: Right-side toggleable/resizable debug panel showing real-time per-conversation event logs (LLM calls, MCP tool calls, OAuth events, errors) with actor color-coding, expandable payloads, and NDJSON download
-    status: wip
+    status: done
