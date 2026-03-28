@@ -7,12 +7,15 @@ import {
   loadActiveId,
   saveActiveId,
 } from "./lib/storage";
+import { fetchServers } from "./lib/api";
 import { ModelSelector } from "./components/ModelSelector";
 import { ServerSidebar } from "./components/ServerSidebar";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { ServerFormModal } from "./components/ServerFormModal";
 import { Chat } from "./components/Chat";
 import { ConversationItem } from "./components/ConversationItem";
+
+const SERVERS_POLL_INTERVAL_MS = 5000;
 
 const TITLE_MAX_LENGTH = 60;
 
@@ -137,9 +140,23 @@ export function App() {
     });
   }
 
-  function handleServersUpdate(updated: McpServerStatus[]) {
-    setServers(updated);
-  }
+  useEffect(() => {
+    let cancelled = false;
+    async function loadServers() {
+      try {
+        const list = await fetchServers();
+        if (!cancelled) setServers(list);
+      } catch (err) {
+        console.error("[App] Failed to fetch servers", err);
+      }
+    }
+    void loadServers();
+    const interval = setInterval(() => void loadServers(), SERVERS_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   function handleRequestAddServer() {
     setEditServerId(undefined);
@@ -193,7 +210,6 @@ export function App() {
           servers={servers}
           enabledServers={enabledServers}
           onToggle={handleToggleServer}
-          onServersUpdate={handleServersUpdate}
           onOpenSettings={() => setIsSettingsOpen(true)}
         />
       </div>

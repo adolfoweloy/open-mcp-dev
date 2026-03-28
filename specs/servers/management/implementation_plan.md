@@ -112,7 +112,7 @@ tasks:
       - specs/servers/management/design.md
       - specs/servers/management/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test ServerSidebar: (1) checkbox is checked for enabled servers and unchecked for disabled,
@@ -123,7 +123,7 @@ tasks:
     refs:
       - specs/servers/management/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # --- SettingsDrawer connection controls ---
   - task: >
