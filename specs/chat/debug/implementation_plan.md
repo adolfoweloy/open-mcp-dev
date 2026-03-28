@@ -55,7 +55,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test DebugContext: (1) emit adds events to the log, (2) clear resets log to [],
@@ -65,7 +65,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # --- Server-side debug event emission ---
   - task: >
