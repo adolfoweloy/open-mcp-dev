@@ -28,15 +28,13 @@ describe("DebugToggleHandle", () => {
     expect(btn).toHaveAttribute("title", "Close debug panel");
   });
 
-  it("visual content changes between open and closed states", () => {
+  it("visual indicator reflects isOpen state via data-open attribute", () => {
     const { rerender } = render(
       <DebugToggleHandle isOpen={false} onToggle={vi.fn()} />
     );
-    const closedText = screen.getByRole("button").textContent;
+    expect(screen.getByRole("button")).toHaveAttribute("data-open", "false");
 
     rerender(<DebugToggleHandle isOpen={true} onToggle={vi.fn()} />);
-    const openText = screen.getByRole("button").textContent;
-
-    expect(closedText).not.toBe(openText);
+    expect(screen.getByRole("button")).toHaveAttribute("data-open", "true");
   });
 });

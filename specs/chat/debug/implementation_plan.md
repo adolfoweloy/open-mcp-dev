@@ -1,225 +1,220 @@
 id: chat__debug
 overview: >
   Right-side toggleable/resizable debug panel showing real-time per-conversation event logs
-  (LLM calls, MCP tool calls, OAuth events, errors) with actor color-coding, expandable
-  payloads, and NDJSON download. Server emits debug events through the Vercel AI SDK data
-  stream; frontend consumes them via a split DebugContext and renders in a DebugPanel component.
-status: done
+  with full visibility into the LLM agentic loop: per-step tracking, tool decisions, MCP
+  tool calls with durations, OAuth events, and errors. Features step separators, correlated
+  event grouping, directional indicators, duration badges, quick filters, and a lightweight
+  panel toggle. Server emits debug events through the Vercel AI SDK data stream; frontend
+  consumes them via a split DebugContext and renders in a DebugPanel component.
+status: todo
 acceptance_criteria:
-  - Debug panel opens/closes via a toggle handle on the right edge of the chat area; chat area shrinks to accommodate (no overlay)
-  - LLM request and response events appear in the log with model id, token usage, and finish reason
-  - MCP tool call, result, and error events appear in the log with tool name and payload
-  - OAuth flow events (start, token received, token refreshed) appear in the log with server id
-  - Each log entry shows timestamp, color-coded actor label, and summary; clicking expands to show full JSON payload
-  - Switching or creating a conversation clears the debug log
+  - Debug panel opens/closes via a lightweight tab on the right edge of the chat area (not a thick bar); chat area shrinks to accommodate (no overlay)
+  - Panel default width is 340px; minimum chat area width of 400px is always preserved
+  - Resize handle has a wide grab area (8px) and shows visual feedback on hover
+  - Each LLM step is separated by a visual section header (e.g. "Step 1", "Step 2")
+  - LLM step-start events show model, tool count, and message count
+  - LLM step-finish events show finish reason, token usage, and duration
+  - When the LLM decides to call tools (finishReason=tool-calls), a tool-decision event lists the chosen tools and arguments
+  - MCP tool-call and tool-result/error events are visually grouped by correlationId (result indented under call)
+  - Tool result and LLM response events show elapsed duration inline
+  - Outgoing events show → prefix; incoming events show ← prefix
+  - Each event has a colour-coded left border matching its actor
+  - Quick filter toggles (LLM | MCP | OAuth | Errors) in the panel header filter the event list
   - Download button exports the log as NDJSON; Clear button resets the log
+  - Switching or creating a conversation clears the debug log
 tasks:
-  # --- Data model & types ---
-  - task: >
-      Add `DebugActor` type and `DebugEvent` interface to `client/src/lib/types.ts`:
-      `DebugActor = 'llm' | 'mcp-client' | 'mcp-server' | 'oauth' | 'bridge' | 'error'`.
-      `DebugEvent` has fields: `id` (string, UUID), `timestamp` (Date), `actor` (DebugActor),
-      `type` (string, e.g. 'request'|'response'|'tool-call'|'tool-result'|'tool-error'|
-      'oauth-start'|'oauth-token'|'oauth-refresh'), `summary` (string), optional `payload`
-      (string, JSON-serialised, capped at 10240 chars + '[TRUNCATED]'), optional `correlationId`
-      (string). Add `StreamDebugEvent` interface to `shared/types.ts`:
-      `{ type: 'debug'; event: Omit<DebugEvent, 'timestamp'> & { timestamp: string } }`.
-      Add `serializePayload(data: unknown): string` helper that JSON.stringify's with 2-space
-      indent, truncates at 10240 chars with '\n[TRUNCATED]' suffix.
-    refs:
-      - specs/chat/debug/design.md
-    priority: high
-    status: done
+  # ── Phase 1: Panel UX fixes (frontend only, no server changes) ──
 
   - task: >
-      Test DebugEvent types and serializePayload helper: (1) payload under 10240 chars is
-      returned unchanged, (2) payload over 10240 chars is truncated to exactly 10240 chars
-      plus '\n[TRUNCATED]' suffix, (3) undefined/null input returns empty string or handles
-      gracefully, (4) circular references are handled without throwing.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  # --- DebugContext (split context) ---
-  - task: >
-      Create `client/src/lib/debug-context.tsx` with a split-context pattern:
-      `DebugEmitContext` provides `{ emit: (event: DebugEvent) => void, clear: () => void }`
-      (stable refs via useCallback); `DebugLogContext` provides `DebugEvent[]`.
-      `DebugProvider` component wraps children in both providers, manages events state via
-      useState. `useDebugEmit()` returns the emit context (stable, does not re-render on log
-      changes). `useDebugLog()` returns the events array (only DebugPanel consumes this).
-      Export all four: DebugProvider, useDebugEmit, useDebugLog, and the context objects for
-      testing.
+      Replace DebugToggleHandle with a lightweight tab. Remove the current 12px-wide
+      always-visible dark bar. Replace with a small tab button anchored to the right
+      edge of the main content area. The tab should be visually subtle — e.g. a short
+      vertical "Debug" label or a small bug icon in a rounded tab. When the panel is
+      open, the tab should either merge into the panel header or sit on the panel's
+      left edge. It must not create a thick visual divider between chat and panel.
+      Props remain: `isOpen: boolean`, `onToggle: () => void`.
     refs:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: done
-
-  - task: >
-      Test DebugContext: (1) emit adds events to the log, (2) clear resets log to [],
-      (3) useDebugEmit returns a stable reference across re-renders (verify with ref comparison),
-      (4) components using only useDebugEmit do not re-render when log changes (verify render
-      count), (5) useDebugLog consumers receive updated events after emit.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  # --- Server-side debug event emission ---
-  - task: >
-      In `server/routes/chat.ts`, emit debug events through `dataStreamWriter.writeData()`:
-      (1) Before `streamText`: emit LLM request event with actor='llm', type='request',
-      summary including model id, payload containing system prompt and messages array.
-      (2) In `streamText` `onFinish` callback: emit LLM response event with actor='llm',
-      type='response', summary with finish reason, payload with token usage and assistant text.
-      (3) In `getToolsForAiSdk` tool execute wrapper (mcp-manager.ts): emit mcp-client
-      tool-call event (actor='mcp-client', type='tool-call', summary with tool name, payload
-      with args) before calling `callWithAuth`; emit mcp-server tool-result event
-      (actor='mcp-server', type='tool-result', payload with result) on success; emit error
-      event (actor='error', type='tool-error', summary with error message) on failure.
-      (4) In OAuth flow within `callWithAuth`: emit oauth events (actor='oauth',
-      type='oauth-start'/'oauth-token'/'oauth-refresh') at the relevant points.
-      Use `serializePayload` for all payloads. Use `crypto.randomUUID()` for event ids.
-      Wrap all emit calls in try/catch to silently swallow serialisation errors.
-      Format events as `StreamDebugEvent` with ISO timestamp string.
-    refs:
-      - specs/chat/debug/design.md
-      - specs/chat/debug/requirements.md
-      - specs/architecture.md
-    priority: high
-    status: done
-
-  - task: >
-      Test server-side debug event emission: (1) chat request emits LLM request event before
-      streamText and LLM response event in onFinish, (2) tool call emits mcp-client event
-      before execution and mcp-server event on success, (3) tool call error emits error event,
-      (4) OAuth flow emits oauth-start/token/refresh events at correct points, (5) payloads
-      are serialised and truncated correctly, (6) emission errors are swallowed silently
-      without affecting chat flow, (7) all events have type='debug' wrapper for data stream.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  # --- Frontend event ingestion (Chat.tsx) ---
-  - task: >
-      In `Chat.tsx`, add a `useEffect` on the `data` array from `useChat` that filters for
-      entries where `type === 'debug'`, deserialises the `timestamp` field from ISO string
-      to `Date`, and calls `emit()` from `useDebugEmit()` for each new debug event.
-      Ensure events are not re-emitted on re-render (track last processed index via useRef).
-      Chat.tsx must be wrapped by DebugProvider (done at App level).
-    refs:
-      - specs/chat/debug/design.md
-    priority: high
-    status: done
-
-  - task: >
-      Test Chat.tsx debug event ingestion: (1) debug events in useChat data are forwarded to
-      DebugContext via emit, (2) non-debug data entries are ignored, (3) events are not
-      re-emitted on component re-render, (4) timestamp is correctly deserialised from ISO
-      string to Date object.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  # --- App.tsx layout and wiring ---
-  - task: >
-      In `App.tsx`: (1) Wrap the main content area with `DebugProvider`. (2) Add state for
-      `isDebugOpen` (boolean, default false) and `debugPanelWidth` (number, default 400).
-      (3) Add a `useEffect` that calls `clear()` from `useDebugEmit()` whenever
-      `activeConversationId` changes (including null from deletion). (4) Render layout as
-      flex row: sidebar | chat (flex:1) | DebugToggleHandle | DebugPanel (conditional).
-      The main content area gets `overflow: hidden` so the panel doesn't cause horizontal
-      scroll. Chat area shrinks to accommodate the panel (flex layout, not overlay).
-    refs:
-      - specs/chat/debug/design.md
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  - task: >
-      Test App.tsx debug wiring: (1) DebugProvider wraps content, (2) toggling debug panel
-      updates isDebugOpen state, (3) switching conversation clears debug log, (4) creating
-      new conversation clears debug log, (5) deleting active conversation clears debug log,
-      (6) panel renders as sibling to chat in flex layout.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: high
-    status: done
-
-  # --- DebugPanel component ---
-  - task: >
-      Create `client/src/components/DebugPanel.tsx` with props: `isOpen`, `width`, `onClose`,
-      `onWidthChange`. Internally uses `useDebugLog()` for event list. Features:
-      (1) Scrollable event list, newest at bottom, with auto-scroll to bottom on new events
-      unless user has manually scrolled up (track via onScroll handler + ref).
-      (2) Each entry: `[HH:MM:SS.mmm]` timestamp, `[ACTOR]` label with hardcoded Tailwind
-      color classes (llm→text-blue-400, mcp-client→text-purple-400, mcp-server→text-green-400,
-      oauth→text-orange-400, bridge→text-pink-400, error→text-red-400), summary text.
-      (3) Clicking entry toggles expanded state showing formatted JSON payload (or truncated
-      string with [TRUNCATED] marker). (4) Left-border resize handle: onMouseDown starts
-      drag, tracks delta, calls onWidthChange with clamped value (min 240px, max 80vw).
-      (5) Header with "Debug" title, Clear button (calls clear from useDebugEmit), and
-      Download button. (6) Panel width set via inline style from props.
-    refs:
-      - specs/chat/debug/design.md
-      - specs/chat/debug/requirements.md
-    priority: medium
-    status: done
-
-  - task: >
-      Test DebugPanel: (1) renders event list from useDebugLog, (2) each entry shows formatted
-      timestamp, actor label with correct color class, and summary, (3) clicking entry toggles
-      payload expansion, (4) auto-scrolls to bottom on new event, (5) does not auto-scroll
-      when user has scrolled up, (6) Clear button calls clear, (7) resize drag updates width
-      within min/max bounds, (8) empty state renders gracefully.
-    refs:
-      - specs/chat/debug/requirements.md
-    priority: medium
-    status: done
-
-  # --- DebugToggleHandle ---
-  - task: >
-      Create `client/src/components/DebugToggleHandle.tsx`: a thin vertical strip rendered on
-      the right edge of the chat column. Always visible regardless of panel state. Clicking
-      toggles the debug panel open/closed. Visual: narrow bar (e.g. 12px wide) with a
-      chevron or bug icon indicating open/close direction. Props: `isOpen: boolean`,
-      `onToggle: () => void`.
-    refs:
-      - specs/chat/debug/design.md
-      - specs/chat/debug/requirements.md
-    priority: medium
     status: done
 
   - task: >
       Test DebugToggleHandle: (1) renders and is visible, (2) clicking calls onToggle,
-      (3) visual indicator reflects isOpen state.
+      (3) visual indicator reflects isOpen state, (4) does not render as a thick bar
+      (verify width is appropriate for a tab, not a full-height divider).
     refs:
       - specs/chat/debug/requirements.md
-    priority: medium
-    status: done
+    priority: high
+    status: todo
 
-  # --- Download functionality ---
   - task: >
-      Implement NDJSON download in DebugPanel: Download button creates a Blob from
-      `events.map(e => JSON.stringify(e)).join('\n')` with type 'application/x-ndjson',
-      creates an object URL, triggers download via a temporary `<a download="debug-chat.log">`
-      element, then revokes the URL. Handle empty log gracefully (disable button or download
-      empty file).
+      Update default panel width and add minimum chat width protection. Change default
+      `debugPanelWidth` from 400 to 340 in App.tsx. Update resize clamping logic in
+      DebugPanel to use `max = window.innerWidth - 280 (sidebar) - 400 (min chat)`
+      instead of `80vw`. Ensure the chat area has `min-width: 400px` or equivalent
+      flex constraint so the panel can never crush it below 400px.
     refs:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
-    priority: low
-    status: done
+    priority: high
+    status: todo
 
   - task: >
-      Test NDJSON download: (1) download produces valid NDJSON with one event per line,
-      (2) each line is parseable as a DebugEvent JSON object, (3) filename is 'debug-chat.log',
-      (4) empty log case is handled.
+      Improve resize handle discoverability. Widen the invisible grab area to 8px
+      (use absolute positioning with negative offset so it extends beyond the panel
+      border). Keep the visible line at 1px. Add hover feedback: change the visible
+      line colour or show a subtle drag indicator. Ensure cursor is `col-resize`
+      across the full grab area.
+    refs:
+      - specs/chat/debug/design.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Test resize handle: (1) drag updates width within min/max bounds, (2) max width
+      preserves at least 400px for the chat area, (3) cursor changes to col-resize on
+      the grab area.
     refs:
       - specs/chat/debug/requirements.md
-    priority: low
-    status: done
+    priority: medium
+    status: todo
+
+  # ── Phase 2: Enrich server-side events ──
+
+  - task: >
+      Add `step`, `durationMs` fields to DebugEvent interface in `client/src/lib/types.ts`
+      and StreamDebugEvent in `shared/types.ts`. Both are optional numbers. Update
+      `serializePayload` if needed (no changes expected). Add new event types to the
+      DebugEvent type documentation: 'step-start', 'step-finish', 'tool-decision'.
+    refs:
+      - specs/chat/debug/design.md
+    priority: high
+    status: todo
+
+  - task: >
+      Replace single LLM request/response events with per-step events in chat.ts.
+      Use `streamText`'s `onStepFinish` callback to emit per-step events. Track step
+      count with a counter variable incremented in `onStepFinish`. For each step:
+      (1) Emit `llm/step-start` at the beginning (before `streamText` for step 1;
+      inside `onStepFinish` for subsequent steps — emit the *next* step's start when
+      the current step finishes with `finishReason: 'tool-calls'`).
+      (2) In `onStepFinish`: if `finishReason === 'tool-calls'`, emit `llm/tool-decision`
+      with the list of tool names and arguments the LLM chose.
+      (3) Emit `llm/step-finish` with step number, finish reason, token usage, and
+      duration (elapsed from step-start to step-finish, tracked via `Date.now()`).
+      Remove the old `llm/request` and `llm/response` events. The step-start event
+      for step 1 should include the list of available tool names (not full schemas)
+      and the message count.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: high
+    status: todo
+
+  - task: >
+      Add duration tracking to MCP tool calls in mcp-manager.ts. In the `execute`
+      wrapper inside `getToolsForAiSdk`, record `startTime = Date.now()` before
+      calling `callWithAuth`. On success, include `durationMs: Date.now() - startTime`
+      in the `mcp-server/tool-result` event. On error, include `durationMs` in the
+      `error/tool-error` event.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: high
+    status: todo
+
+  - task: >
+      Test server-side event emission: (1) step-start event is emitted before streamText
+      with model, tool count, and message count, (2) onStepFinish emits step-finish with
+      step number, finish reason, usage, and durationMs, (3) when finishReason is
+      'tool-calls', a tool-decision event is emitted listing chosen tools, (4) subsequent
+      steps emit a new step-start, (5) tool-call events include correlationId, (6) tool-result
+      events include durationMs and correlationId, (7) tool-error events include durationMs and
+      correlationId, (8) all events have type='debug' wrapper, (9) emission errors are swallowed.
+    refs:
+      - specs/chat/debug/requirements.md
+    priority: high
+    status: todo
+
+  # ── Phase 3: Improve event presentation in the panel ──
+
+  - task: >
+      Add step separators to DebugPanel. When rendering the event list, detect
+      `step-start` events and render a visual section header before them:
+      `─── Step N ──────────────────────────`. Use a thin horizontal rule with
+      the step label centred. Style with muted text colour and subtle borders.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: high
+    status: todo
+
+  - task: >
+      Add directional indicators to event entries. Outgoing events (types:
+      'step-start', 'tool-call') get a `→` prefix before the summary. Incoming
+      events (types: 'step-finish', 'tool-decision', 'tool-result', 'tool-error')
+      get a `←` prefix. Other events (oauth, etc.) get no prefix.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Add duration badges to event entries. For events with a `durationMs` field,
+      display the duration inline after the summary text. Format: `(1.2s)` for
+      durations >= 1000ms, `(430ms)` for durations < 1000ms. Use a muted text
+      colour for the badge.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Add colour-coded left borders to event entries. Each event entry gets a 3px
+      left border coloured by its actor. Use hardcoded Tailwind border classes
+      (border-blue-400 for llm, border-purple-400 for mcp-client, etc.) matching
+      the existing actor colour scheme.
+    refs:
+      - specs/chat/debug/design.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Add correlated event grouping. When rendering the event list, detect events
+      with a `correlationId` that matches a preceding `tool-call` event's
+      `correlationId`. Indent these events (tool-result, tool-error) under the
+      matching tool-call — e.g. add left margin/padding to visually nest them.
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Add quick filter toggles to the DebugPanel header. Add a row of small toggle
+      buttons below the title: `LLM | MCP | OAuth | Errors`. All enabled by default.
+      Clicking a filter toggles it off/on. Filter logic: show event if its actor
+      matches any enabled filter. `LLM` = actor 'llm', `MCP` = actors 'mcp-client'
+      and 'mcp-server', `OAuth` = actor 'oauth', `Errors` = actor 'error'. Store
+      filter state in component state (not persisted).
+    refs:
+      - specs/chat/debug/design.md
+      - specs/chat/debug/requirements.md
+    priority: medium
+    status: todo
+
+  - task: >
+      Test DebugPanel presentation: (1) step-start events trigger a step separator
+      header, (2) outgoing events show → prefix, incoming events show ← prefix,
+      (3) events with durationMs show formatted duration badge, (4) each event has
+      a left border matching its actor colour, (5) tool-result events indented under
+      matching tool-call, (6) quick filters toggle event visibility correctly,
+      (7) all filters enabled by default, (8) disabling all filters shows no events,
+      (9) auto-scroll and expand/collapse still work, (10) Clear and Download still work.
+    refs:
+      - specs/chat/debug/requirements.md
+    priority: medium
+    status: todo
