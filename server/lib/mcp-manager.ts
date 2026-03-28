@@ -685,6 +685,7 @@ export class MCPClientManager {
               });
             } catch { /* swallow */ }
 
+            const startTime = Date.now();
             let result: unknown;
             try {
               result = await this.callWithAuth(
@@ -708,6 +709,7 @@ export class MCPClientManager {
                     summary: `Tool error: ${tool.name} — ${(err as Error).message}`,
                     payload: serializePayload({ error: (err as Error).message }),
                     correlationId: toolCallId,
+                    durationMs: Date.now() - startTime,
                   },
                 });
               } catch { /* swallow */ }
@@ -725,6 +727,7 @@ export class MCPClientManager {
                   summary: `Tool result: ${tool.name}`,
                   payload: serializePayload(result),
                   correlationId: toolCallId,
+                  durationMs: Date.now() - startTime,
                 },
               });
             } catch { /* swallow */ }

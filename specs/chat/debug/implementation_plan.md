@@ -122,7 +122,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Test server-side event emission: (1) step-start event is emitted before streamText
