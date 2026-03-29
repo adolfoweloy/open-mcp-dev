@@ -62,7 +62,7 @@ tasks:
       - specs/bugs/chat-autoscroll-override/requirements.md
       - specs/bugs/chat-autoscroll-override/research.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Add tests to client/src/components/MessageList.test.tsx for the new

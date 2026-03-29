@@ -10,9 +10,20 @@ interface Props {
 
 export function MessageList({ messages, onSendMessage, onUpdateContext }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userHasScrolledUp = useRef(false);
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userHasScrolledUp.current = distanceFromBottom >= 100;
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userHasScrolledUp.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   if (messages.length === 0) {
@@ -24,7 +35,7 @@ export function MessageList({ messages, onSendMessage, onUpdateContext }: Props)
   }
 
   return (
-    <div style={{ overflowY: "auto", flex: 1 }}>
+    <div ref={scrollContainerRef} onScroll={handleScroll} style={{ overflowY: "auto", flex: 1 }}>
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}
