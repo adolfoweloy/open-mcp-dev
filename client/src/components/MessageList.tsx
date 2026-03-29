@@ -35,7 +35,7 @@ export function MessageList({ messages, onSendMessage, onUpdateContext }: Props)
   }
 
   return (
-    <div ref={scrollContainerRef} onScroll={handleScroll} style={{ overflowY: "auto", flex: 1 }}>
+    <div ref={scrollContainerRef} onScroll={handleScroll} style={{ overflowY: "auto", overflowX: "hidden", flex: 1 }}>
       {messages.map((msg) => (
         <MessageBubble
           key={msg.id}

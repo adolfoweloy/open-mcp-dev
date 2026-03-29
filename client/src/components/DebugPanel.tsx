@@ -74,9 +74,24 @@ function EventEntry({ event, isCorrelated }: { event: DebugEvent; isCorrelated?:
     const next = !expanded;
     setExpanded(next);
     if (next) {
-      // After the DOM updates, scroll this entry into view within its scroll container
+      // Scroll only the nearest overflow-y scroll container — NOT the whole page.
+      // Using scrollIntoView() propagates to outer overflow:hidden flex containers
+      // and shifts the chat area off-screen.
       requestAnimationFrame(() => {
-        entryRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        const el = entryRef.current;
+        if (!el) return;
+        let scrollParent = el.parentElement;
+        while (scrollParent) {
+          const { overflowY } = window.getComputedStyle(scrollParent);
+          if (overflowY === "auto" || overflowY === "scroll") break;
+          scrollParent = scrollParent.parentElement;
+        }
+        if (!scrollParent) return;
+        const elRect = el.getBoundingClientRect();
+        const containerRect = scrollParent.getBoundingClientRect();
+        if (elRect.bottom > containerRect.bottom) {
+          scrollParent.scrollTop += elRect.bottom - containerRect.bottom + 8;
+        }
       });
     }
   }
@@ -219,7 +234,7 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
     <div
       data-testid="debug-panel-root"
       style={{ width: `${width}px`, position: "relative" }}
-      className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden min-h-0 h-full"
+      className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden"
     >
       {/* Resize handle — 8px grab area straddling the left edge, 1px visible line */}
       <div
@@ -285,7 +300,7 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 min-h-0 overflow-y-auto pl-3 pr-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pl-3 pr-2"
       >
         {visibleEvents.length === 0 ? (
           <p className="text-[11px] text-neutral-600 py-4 text-center">No events yet.</p>
