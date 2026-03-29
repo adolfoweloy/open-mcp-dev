@@ -1,6 +1,6 @@
 id: bugs__debug-panel-ux
 overview: Fix debug panel scroll breakage on expand, add expand/collapse triangle indicators, and restyle expanded payloads with terminal/code-block appearance
-status: planning
+status: done
 acceptance_criteria:
   - Expanding any number of log entries in the debug panel does not prevent the event list from scrolling vertically; the user can scroll to see all expanded content
   - The event list scroll container is properly constrained with min-h-0 on the flex child so overflow-y-auto functions correctly within the flex-col layout
