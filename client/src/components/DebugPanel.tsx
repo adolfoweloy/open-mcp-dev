@@ -64,15 +64,28 @@ function formatPayload(payload: string): string {
 
 function EventEntry({ event, isCorrelated }: { event: DebugEvent; isCorrelated?: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const entryRef = useRef<HTMLDivElement>(null);
   const colorClass = ACTOR_COLORS[event.actor];
   const borderClass = ACTOR_BORDER_COLORS[event.actor];
   const direction = getDirectionIndicator(event.type);
   const hasPayload = !!event.payload;
 
+  function handleToggle() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) {
+      // After the DOM updates, scroll this entry into view within its scroll container
+      requestAnimationFrame(() => {
+        entryRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  }
+
   return (
     <div
+      ref={entryRef}
       className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2${hasPayload ? " cursor-pointer hover:bg-neutral-800/50" : ""}${isCorrelated ? " ml-4" : ""}`}
-      onClick={hasPayload ? () => setExpanded((v) => !v) : undefined}
+      onClick={hasPayload ? handleToggle : undefined}
     >
       <div className="flex items-start gap-1 font-mono text-[11px]">
         {hasPayload ? (
