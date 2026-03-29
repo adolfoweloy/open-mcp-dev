@@ -3,7 +3,7 @@ overview: >
   Fix the unconditional auto-scroll in MessageList so that scrolling up during
   streaming suspends auto-follow, and auto-scroll resumes only when the user
   returns to within ~100px of the bottom.
-status: validation
+status: done
 acceptance_criteria:
   - >
     When no manual scroll has occurred, the message list auto-scrolls to the

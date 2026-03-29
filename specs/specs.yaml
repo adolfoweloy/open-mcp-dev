@@ -75,7 +75,7 @@ specs:
     domain: bugs
     feature: chat-autoscroll-override
     description: Chat auto-scroll prevents manual scrolling during response generation
-    status: todo
+    status: wip
 
   - id: bugs__iframe-missing-border
     domain: bugs
