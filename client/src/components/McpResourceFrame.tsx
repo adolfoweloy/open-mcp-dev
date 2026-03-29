@@ -28,6 +28,8 @@ export function McpResourceFrame({
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const isFullscreenRef = useRef(false);
+  const [iframeHeight, setIframeHeight] = useState(400);
   const toolArgsRef = useRef(toolArgs);
   const toolResultRef = useRef(toolResult);
   useEffect(() => { toolArgsRef.current = toolArgs; toolResultRef.current = toolResult; }, [toolArgs, toolResult]);
@@ -84,8 +86,10 @@ export function McpResourceFrame({
         case "ui/request-display-mode": {
           const mode = (msg.params as { mode?: string })?.mode;
           if (mode === "fullscreen") {
+            isFullscreenRef.current = true;
             setIsFullscreen(true);
           } else {
+            isFullscreenRef.current = false;
             setIsFullscreen(false);
           }
           sendToIframe({
@@ -131,6 +135,14 @@ export function McpResourceFrame({
           break;
         }
 
+        case "ui/notifications/size-changed": {
+          const height = (msg.params as { height?: number })?.height;
+          if (height !== undefined && !isFullscreenRef.current) {
+            setIframeHeight(height);
+          }
+          break;
+        }
+
         case "ui/update-model-context": {
           const content = (
             msg.params as {
@@ -153,6 +165,7 @@ export function McpResourceFrame({
   }, [handleMessage]);
 
   function handleExitFullscreen() {
+    isFullscreenRef.current = false;
     setIsFullscreen(false);
     sendToIframe({
       jsonrpc: "2.0",
@@ -166,8 +179,9 @@ export function McpResourceFrame({
       ref={iframeRef}
       src={src}
       sandbox="allow-scripts allow-forms allow-same-origin"
+      scrolling="no"
       onLoad={handleLoad}
-      style={{ width: "100%", height: "100%", border: "none" }}
+      style={{ width: "100%", height: "100%", border: "none", display: "block" }}
       title={`MCP Resource: ${uri}`}
     />
   );
@@ -195,7 +209,7 @@ export function McpResourceFrame({
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "400px" }}>
+    <div style={{ position: "relative", width: "100%", height: `${iframeHeight}px`, transition: "height 300ms ease-out" }}>
       <button
         onClick={() => setIsFullscreen(true)}
         style={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}

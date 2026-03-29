@@ -68,11 +68,17 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
     );
   }
 
-  const renderedParts = parts.map((part, i) => {
+  // Separate full-width iframe parts from bubble parts (text, plain tool results)
+  const iframeParts: React.ReactNode[] = [];
+  const bubbleParts: React.ReactNode[] = [];
+
+  parts.forEach((part, i) => {
     if (part.type === "text") {
       const text = part.text as string;
-      if (!text || !text.trim()) return null;
-      return <pre key={i} style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</pre>;
+      if (text?.trim()) {
+        bubbleParts.push(<pre key={i} style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</pre>);
+      }
+      return;
     }
 
     if (part.type === "tool-invocation") {
@@ -84,13 +90,12 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
         state?: string;
       };
 
-      // MCP Apps SDK: tool result carries _uiResourceUri — render it in an iframe
       if (inv.state === "result" && inv.result) {
         const uiResourceUri = (inv.result as Record<string, unknown>)._uiResourceUri as string | undefined;
         if (uiResourceUri) {
           const serverId = (inv.toolName ?? "").split("__")[0];
           const { _uiResourceUri: _dropped, ...toolResult } = inv.result as Record<string, unknown>;
-          return (
+          iframeParts.push(
             <McpResourceFrame
               key={inv.toolCallId ?? i}
               serverId={serverId}
@@ -101,14 +106,14 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
               onUpdateContext={onUpdateContext ?? (() => {})}
             />
           );
+          return;
         }
 
-        // Fallback: inline HTML content in the result itself (mcp:// URI or data:text/html)
         const content = (inv.result as { content?: unknown }).content;
         if (isHtmlContent(content)) {
           const resource = extractHtmlResource(content);
           if (resource) {
-            return (
+            iframeParts.push(
               <McpResourceFrame
                 key={inv.toolCallId ?? i}
                 serverId={resource.serverId}
@@ -117,11 +122,12 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
                 onUpdateContext={onUpdateContext ?? (() => {})}
               />
             );
+            return;
           }
         }
       }
 
-      return (
+      bubbleParts.push(
         <ToolCallResult
           key={inv.toolCallId ?? i}
           toolName={inv.toolName ?? "unknown"}
@@ -131,11 +137,9 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
         />
       );
     }
-
-    return null;
   });
 
-  if (renderedParts.every((p) => p === null)) {
+  if (iframeParts.length === 0 && bubbleParts.length === 0) {
     if (isUser) return null;
     return (
       <div style={containerStyle}>
@@ -147,8 +151,13 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={bubbleStyle}>{renderedParts}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px", margin: "4px 0" }}>
+      {iframeParts}
+      {bubbleParts.length > 0 && (
+        <div style={containerStyle}>
+          <div style={bubbleStyle}>{bubbleParts}</div>
+        </div>
+      )}
     </div>
   );
 }
