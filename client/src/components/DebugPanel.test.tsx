@@ -316,6 +316,210 @@ describe("DebugPanel", () => {
     expect(onWidthChange).toHaveBeenCalledWith(240);
   });
 
+  describe("step separators", () => {
+    it("step-start event renders a step separator header", () => {
+      const event = makeEvent({ type: "step-start", step: 1, actor: "llm", summary: "Step start" });
+      renderPanel([event]);
+      expect(screen.getByText("Step 1")).toBeInTheDocument();
+    });
+
+    it("step separator uses step number from event", () => {
+      const event = makeEvent({ type: "step-start", step: 3, actor: "llm", summary: "Step 3 start" });
+      renderPanel([event]);
+      expect(screen.getByText("Step 3")).toBeInTheDocument();
+    });
+
+    it("non-step-start events do not render a step separator", () => {
+      const event = makeEvent({ type: "request", actor: "llm", summary: "LLM request" });
+      renderPanel([event]);
+      expect(screen.queryByText(/^Step \d+$/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("directional indicators", () => {
+    it("outgoing event types show → prefix", () => {
+      for (const type of ["step-start", "tool-call"]) {
+        const event = makeEvent({ type, actor: "llm", summary: `${type} summary` });
+        const { unmount } = render(
+          <Wrapper events={[event]}>
+            <DebugPanel isOpen={true} width={400} onClose={vi.fn()} onWidthChange={vi.fn()} />
+          </Wrapper>
+        );
+        expect(screen.getByText("→")).toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it("incoming event types show ← prefix", () => {
+      for (const type of ["step-finish", "tool-decision", "tool-result", "tool-error"]) {
+        const event = makeEvent({ type, actor: "mcp-server", summary: `${type} summary` });
+        const { unmount } = render(
+          <Wrapper events={[event]}>
+            <DebugPanel isOpen={true} width={400} onClose={vi.fn()} onWidthChange={vi.fn()} />
+          </Wrapper>
+        );
+        expect(screen.getByText("←")).toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it("other event types show no directional prefix", () => {
+      const event = makeEvent({ type: "oauth-start", actor: "oauth", summary: "OAuth event" });
+      renderPanel([event]);
+      expect(screen.queryByText("→")).not.toBeInTheDocument();
+      expect(screen.queryByText("←")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("duration badges", () => {
+    it("event with durationMs < 1000 shows (Xms) badge", () => {
+      const event = makeEvent({ durationMs: 430, summary: "Fast event" });
+      renderPanel([event]);
+      expect(screen.getByText("(430ms)")).toBeInTheDocument();
+    });
+
+    it("event with durationMs >= 1000 shows (X.Xs) badge", () => {
+      const event = makeEvent({ durationMs: 1200, summary: "Slow event" });
+      renderPanel([event]);
+      expect(screen.getByText("(1.2s)")).toBeInTheDocument();
+    });
+
+    it("event without durationMs shows no duration badge", () => {
+      const event = makeEvent({ summary: "No duration" });
+      renderPanel([event]);
+      expect(screen.queryByText(/\(\d+ms\)/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/\(\d+\.\d+s\)/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("colour-coded left borders", () => {
+    it("event entry has left border colour matching its actor", () => {
+      const borderClasses: Record<string, string> = {
+        llm: "border-l-blue-400",
+        "mcp-client": "border-l-purple-400",
+        "mcp-server": "border-l-green-400",
+        oauth: "border-l-orange-400",
+        bridge: "border-l-pink-400",
+        error: "border-l-red-400",
+      };
+      for (const [actor, borderClass] of Object.entries(borderClasses)) {
+        const event = makeEvent({ actor: actor as DebugEvent["actor"], summary: `${actor} event` });
+        const { unmount } = render(
+          <Wrapper events={[event]}>
+            <DebugPanel isOpen={true} width={400} onClose={vi.fn()} onWidthChange={vi.fn()} />
+          </Wrapper>
+        );
+        const entry = screen.getByText(`${actor} event`).closest("div.border-b");
+        expect(entry?.className).toContain(borderClass);
+        unmount();
+      }
+    });
+  });
+
+  describe("correlated event grouping", () => {
+    it("tool-result with matching correlationId is indented under tool-call", () => {
+      const correlationId = "corr-abc";
+      const toolCall = makeEvent({ type: "tool-call", actor: "mcp-client", correlationId, summary: "Call myTool" });
+      const toolResult = makeEvent({ type: "tool-result", actor: "mcp-server", correlationId, summary: "myTool result" });
+      renderPanel([toolCall, toolResult]);
+
+      const resultEntry = screen.getByText("myTool result").closest("div.border-b");
+      expect(resultEntry?.className).toContain("ml-4");
+    });
+
+    it("tool-call event itself is not indented", () => {
+      const correlationId = "corr-abc";
+      const toolCall = makeEvent({ type: "tool-call", actor: "mcp-client", correlationId, summary: "Call myTool" });
+      renderPanel([toolCall]);
+
+      const callEntry = screen.getByText("Call myTool").closest("div.border-b");
+      expect(callEntry?.className).not.toContain("ml-4");
+    });
+
+    it("tool-error with matching correlationId is indented", () => {
+      const correlationId = "corr-xyz";
+      const toolCall = makeEvent({ type: "tool-call", actor: "mcp-client", correlationId, summary: "Call failTool" });
+      const toolError = makeEvent({ type: "tool-error", actor: "error", correlationId, summary: "failTool error" });
+      renderPanel([toolCall, toolError]);
+
+      const errorEntry = screen.getByText("failTool error").closest("div.border-b");
+      expect(errorEntry?.className).toContain("ml-4");
+    });
+
+    it("event without correlationId is not indented", () => {
+      const event = makeEvent({ type: "tool-result", actor: "mcp-server", summary: "Unmatched result" });
+      renderPanel([event]);
+
+      const entry = screen.getByText("Unmatched result").closest("div.border-b");
+      expect(entry?.className).not.toContain("ml-4");
+    });
+  });
+
+  describe("quick filters", () => {
+    it("all filters are enabled by default", () => {
+      renderPanel();
+      for (const key of ["LLM", "MCP", "OAuth", "Errors"]) {
+        const btn = screen.getByTestId(`filter-${key}`);
+        expect(btn.className).toContain("bg-neutral-700");
+      }
+    });
+
+    it("toggling LLM filter hides LLM events", () => {
+      const events = [
+        makeEvent({ actor: "llm", summary: "LLM event" }),
+        makeEvent({ actor: "mcp-server", summary: "MCP event" }),
+      ];
+      renderPanel(events);
+
+      expect(screen.getByText("LLM event")).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("filter-LLM"));
+      expect(screen.queryByText("LLM event")).not.toBeInTheDocument();
+      expect(screen.getByText("MCP event")).toBeInTheDocument();
+    });
+
+    it("MCP filter covers both mcp-client and mcp-server actors", () => {
+      const events = [
+        makeEvent({ actor: "mcp-client", summary: "MCP client event" }),
+        makeEvent({ actor: "mcp-server", summary: "MCP server event" }),
+        makeEvent({ actor: "llm", summary: "LLM event" }),
+      ];
+      renderPanel(events);
+
+      fireEvent.click(screen.getByTestId("filter-MCP"));
+      expect(screen.queryByText("MCP client event")).not.toBeInTheDocument();
+      expect(screen.queryByText("MCP server event")).not.toBeInTheDocument();
+      expect(screen.getByText("LLM event")).toBeInTheDocument();
+    });
+
+    it("disabling all filters shows no events and empty state", () => {
+      const events = [
+        makeEvent({ actor: "llm", summary: "LLM event" }),
+        makeEvent({ actor: "mcp-client", summary: "MCP event" }),
+        makeEvent({ actor: "oauth", summary: "OAuth event" }),
+        makeEvent({ actor: "error", summary: "Error event" }),
+      ];
+      renderPanel(events);
+
+      fireEvent.click(screen.getByTestId("filter-LLM"));
+      fireEvent.click(screen.getByTestId("filter-MCP"));
+      fireEvent.click(screen.getByTestId("filter-OAuth"));
+      fireEvent.click(screen.getByTestId("filter-Errors"));
+
+      expect(screen.getByText("No events yet.")).toBeInTheDocument();
+    });
+
+    it("re-enabling a filter shows events again", () => {
+      const events = [makeEvent({ actor: "llm", summary: "LLM event" })];
+      renderPanel(events);
+
+      fireEvent.click(screen.getByTestId("filter-LLM"));
+      expect(screen.queryByText("LLM event")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId("filter-LLM"));
+      expect(screen.getByText("LLM event")).toBeInTheDocument();
+    });
+  });
+
   describe("NDJSON download", () => {
     let capturedContent: string | null = null;
     let capturedType: string | null = null;

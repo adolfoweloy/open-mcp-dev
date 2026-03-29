@@ -6,7 +6,7 @@ overview: >
   event grouping, directional indicators, duration badges, quick filters, and a lightweight
   panel toggle. Server emits debug events through the Vercel AI SDK data stream; frontend
   consumes them via a split DebugContext and renders in a DebugPanel component.
-status: todo
+status: done
 acceptance_criteria:
   - Debug panel opens/closes via a lightweight tab on the right edge of the chat area (not a thick bar); chat area shrinks to accommodate (no overlay)
   - Panel default width is 340px; minimum chat area width of 400px is always preserved
@@ -217,4 +217,4 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done

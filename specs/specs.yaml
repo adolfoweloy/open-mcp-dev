@@ -69,4 +69,4 @@ specs:
     domain: chat
     feature: debug
     description: Right-side debug panel with full LLM agentic loop visibility (per-step tracking, tool decisions, durations), correlated event grouping, step separators, directional indicators, quick filters, lightweight toggle tab, and min-chat-width protection
-    status: todo
+    status: done
