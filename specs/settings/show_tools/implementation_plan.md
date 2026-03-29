@@ -3,7 +3,7 @@ overview: >
   Add a "Tools" button to each connected server row in the Settings drawer that opens a modal
   showing the server's tools and resources with search, accordion expand/collapse, and schema
   code blocks. Includes a new backend endpoint to fetch capabilities from the MCP SDK client.
-status: planning
+status: done
 acceptance_criteria:
   - "GET /api/mcp/:serverId/capabilities returns tools, resources, and resourcesSupported for a connected server; returns 404 for unknown/disconnected servers, 503 if listTools() fails, and 504 on timeout"
   - "A 'Tools' button appears on each server row in SettingsDrawer only when the server is connected; clicking it opens the ServerCapabilitiesModal"
