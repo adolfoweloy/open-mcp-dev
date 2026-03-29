@@ -87,7 +87,7 @@ specs:
     domain: bugs
     feature: server-toggle-no-effect
     description: Toggling a connected MCP server checkbox has no visible effect on state
-    status: todo
+    status: wip
 
   - id: bugs__debug-panel-ux
     domain: bugs

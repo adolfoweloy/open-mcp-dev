@@ -6,7 +6,7 @@ overview: >
   (e.g. after handleToggleServer updates enabledServers). This causes enabledServers
   and disabledServers derivations to read stale data, so the checkbox re-renders
   with the old value.
-status: planning
+status: done
 acceptance_criteria:
   - Clicking the checkbox of a connected server unchecks it immediately in the UI; clicking again re-checks it
   - The updated enabledServers array is persisted to localStorage via the existing saveConversations call after each toggle
