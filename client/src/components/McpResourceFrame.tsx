@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface Props {
   serverId: string;
   uri: string;
+  toolArgs?: Record<string, unknown>;
+  toolResult?: Record<string, unknown>;
   onSendMessage: (content: string) => void;
   onUpdateContext: (content: string) => void;
 }
@@ -13,16 +15,22 @@ interface JsonRpcMessage {
   method?: string;
   params?: Record<string, unknown>;
   result?: unknown;
+  error?: { code: number; message: string };
 }
 
 export function McpResourceFrame({
   serverId,
   uri,
+  toolArgs,
+  toolResult,
   onSendMessage,
   onUpdateContext,
 }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const toolArgsRef = useRef(toolArgs);
+  const toolResultRef = useRef(toolResult);
+  useEffect(() => { toolArgsRef.current = toolArgs; toolResultRef.current = toolResult; }, [toolArgs, toolResult]);
 
   const src = `/api/mcp/resource/${encodeURIComponent(serverId)}?uri=${encodeURIComponent(uri)}`;
 
@@ -31,40 +39,60 @@ export function McpResourceFrame({
   }, []);
 
   const handleLoad = useCallback(() => {
-    sendToIframe({
-      jsonrpc: "2.0",
-      method: "ui/ready",
-      params: { version: "1.0" },
-    });
-  }, [sendToIframe]);
+    // Widget initiates with ui/initialize; we don't need to send anything on load.
+  }, []);
 
   const handleMessage = useCallback(
     async (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
       const msg = event.data as JsonRpcMessage;
       if (!msg || msg.jsonrpc !== "2.0") return;
 
       switch (msg.method) {
-        case "requestDisplayMode": {
+        case "ui/initialize": {
+          sendToIframe({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: {
+              protocolVersion: "2025-11-21",
+              hostInfo: { name: "mcp-chat", version: "1.0.0" },
+              hostCapabilities: {
+                serverTools: {},
+                updateModelContext: { text: {} },
+                message: { text: {} },
+              },
+              hostContext: {},
+            },
+          });
+          if (toolArgsRef.current !== undefined) {
+            sendToIframe({
+              jsonrpc: "2.0",
+              method: "ui/notifications/tool-input",
+              params: { arguments: toolArgsRef.current },
+            });
+          }
+          if (toolResultRef.current !== undefined) {
+            sendToIframe({
+              jsonrpc: "2.0",
+              method: "ui/notifications/tool-result",
+              params: toolResultRef.current,
+            });
+          }
+          break;
+        }
+
+        case "ui/request-display-mode": {
           const mode = (msg.params as { mode?: string })?.mode;
           if (mode === "fullscreen") {
             setIsFullscreen(true);
-            if (msg.id !== undefined) {
-              sendToIframe({
-                jsonrpc: "2.0",
-                id: msg.id,
-                result: { mode: "fullscreen" },
-              });
-            }
           } else {
             setIsFullscreen(false);
-            if (msg.id !== undefined) {
-              sendToIframe({
-                jsonrpc: "2.0",
-                id: msg.id,
-                result: { mode: mode ?? "inline" },
-              });
-            }
           }
+          sendToIframe({
+            jsonrpc: "2.0",
+            id: msg.id,
+            result: { mode: mode ?? "inline" },
+          });
           break;
         }
 
@@ -76,6 +104,7 @@ export function McpResourceFrame({
           )?.content;
           const text = content?.find((c) => c.type === "text")?.text ?? "";
           onSendMessage(text);
+          sendToIframe({ jsonrpc: "2.0", id: msg.id, result: {} });
           break;
         }
 
@@ -83,44 +112,20 @@ export function McpResourceFrame({
           const toolName = (msg.params as { name?: string })?.name ?? "";
           const toolArgs = (msg.params as { arguments?: unknown })?.arguments;
           try {
-            const response = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                messages: [
-                  {
-                    role: "user",
-                    content: [
-                      {
-                        type: "tool_call",
-                        toolCallId: "iframe-tool",
-                        toolName,
-                        args: toolArgs,
-                      },
-                    ],
-                  },
-                ],
-              }),
-            });
-            const resultText = await response.text();
-            sendToIframe({
-              jsonrpc: "2.0",
-              method: "ui/notifications/tool-result",
-              params: {
-                content: [{ type: "text", text: resultText }],
-                structuredContent: {},
-              },
-            });
+            const result = await fetch(
+              `/api/mcp/tool/${encodeURIComponent(serverId)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: toolName, arguments: toolArgs }),
+              }
+            ).then((r) => r.json());
+            sendToIframe({ jsonrpc: "2.0", id: msg.id, result });
           } catch (err) {
             sendToIframe({
               jsonrpc: "2.0",
-              method: "ui/notifications/tool-result",
-              params: {
-                content: [
-                  { type: "text", text: (err as Error).message },
-                ],
-                structuredContent: {},
-              },
+              id: msg.id,
+              error: { code: -32000, message: (err as Error).message },
             });
           }
           break;
@@ -134,6 +139,7 @@ export function McpResourceFrame({
           )?.content;
           const text = content?.find((c) => c.type === "text")?.text ?? "";
           onUpdateContext(text);
+          sendToIframe({ jsonrpc: "2.0", id: msg.id, result: {} });
           break;
         }
       }

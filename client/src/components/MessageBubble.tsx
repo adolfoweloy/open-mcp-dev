@@ -89,11 +89,14 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
         const uiResourceUri = (inv.result as Record<string, unknown>)._uiResourceUri as string | undefined;
         if (uiResourceUri) {
           const serverId = (inv.toolName ?? "").split("__")[0];
+          const { _uiResourceUri: _dropped, ...toolResult } = inv.result as Record<string, unknown>;
           return (
             <McpResourceFrame
               key={inv.toolCallId ?? i}
               serverId={serverId}
               uri={uiResourceUri}
+              toolArgs={inv.args as Record<string, unknown>}
+              toolResult={toolResult}
               onSendMessage={onSendMessage ?? (() => {})}
               onUpdateContext={onUpdateContext ?? (() => {})}
             />
