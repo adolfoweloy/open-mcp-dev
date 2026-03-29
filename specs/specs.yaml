@@ -70,3 +70,27 @@ specs:
     feature: debug
     description: Right-side debug panel with full LLM agentic loop visibility (per-step tracking, tool decisions, durations), correlated event grouping, step separators, directional indicators, quick filters, lightweight toggle tab, and min-chat-width protection
     status: done
+
+  - id: bugs__chat-autoscroll-override
+    domain: bugs
+    feature: chat-autoscroll-override
+    description: Chat auto-scroll prevents manual scrolling during response generation
+    status: todo
+
+  - id: bugs__iframe-missing-border
+    domain: bugs
+    feature: iframe-missing-border
+    description: MCP resource iframe has no visible border to delimit widget boundaries
+    status: todo
+
+  - id: bugs__server-toggle-no-effect
+    domain: bugs
+    feature: server-toggle-no-effect
+    description: Toggling a connected MCP server checkbox has no visible effect on state
+    status: todo
+
+  - id: bugs__debug-panel-ux
+    domain: bugs
+    feature: debug-panel-ux
+    description: Debug panel scroll breaks when expanding log entries; poor payload styling and no expand/collapse affordance
+    status: todo
