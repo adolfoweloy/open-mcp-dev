@@ -98,13 +98,47 @@ interface DebugPanelProps {
   onWidthChange: (w: number) => void;
 }
 
+type FilterKey = "LLM" | "MCP" | "OAuth" | "Errors";
+
+const FILTER_ACTORS: Record<FilterKey, DebugActor[]> = {
+  LLM: ["llm"],
+  MCP: ["mcp-client", "mcp-server"],
+  OAuth: ["oauth"],
+  Errors: ["error"],
+};
+
 export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
   const events = useDebugLog();
   const { clear } = useDebugEmit();
+  const [activeFilters, setActiveFilters] = useState<Record<FilterKey, boolean>>({
+    LLM: true,
+    MCP: true,
+    OAuth: true,
+    Errors: true,
+  });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isUserScrolledUp = useRef(false);
   const prevEventCount = useRef(events.length);
+
+  function toggleFilter(key: FilterKey) {
+    setActiveFilters((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const enabledActors = new Set<DebugActor>(
+    (Object.keys(activeFilters) as FilterKey[])
+      .filter((k) => activeFilters[k])
+      .flatMap((k) => FILTER_ACTORS[k])
+  );
+
+  // Actors not covered by any filter (e.g. 'bridge') always pass through
+  const filteredActors = new Set<DebugActor>(
+    Object.values(FILTER_ACTORS).flat()
+  );
+
+  const visibleEvents = events.filter(
+    (e) => !filteredActors.has(e.actor) || enabledActors.has(e.actor)
+  );
 
   // Auto-scroll to bottom on new events unless user scrolled up
   useEffect(() => {
@@ -154,6 +188,7 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
 
   return (
     <div
+      data-testid="debug-panel-root"
       style={{ width: `${width}px`, position: "relative" }}
       className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden"
     >
@@ -170,31 +205,50 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between pl-3 pr-2 py-1.5 border-b border-neutral-700 shrink-0">
-        <span className="text-xs font-semibold text-neutral-300">Debug</span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handleDownload}
-            disabled={events.length === 0}
-            className="text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-40 px-1.5 py-0.5 rounded hover:bg-neutral-700"
-            title="Download as NDJSON"
-          >
-            ↓ Download
-          </button>
-          <button
-            onClick={clear}
-            className="text-[10px] text-neutral-400 hover:text-neutral-200 px-1.5 py-0.5 rounded hover:bg-neutral-700"
-            title="Clear log"
-          >
-            Clear
-          </button>
-          <button
-            onClick={onClose}
-            className="text-[10px] text-neutral-400 hover:text-neutral-200 px-1 py-0.5 rounded hover:bg-neutral-700"
-            title="Close"
-          >
-            ✕
-          </button>
+      <div className="flex flex-col border-b border-neutral-700 shrink-0">
+        <div className="flex items-center justify-between pl-3 pr-2 py-1.5">
+          <span className="text-xs font-semibold text-neutral-300">Debug</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleDownload}
+              disabled={events.length === 0}
+              className="text-[10px] text-neutral-400 hover:text-neutral-200 disabled:opacity-40 px-1.5 py-0.5 rounded hover:bg-neutral-700"
+              title="Download as NDJSON"
+            >
+              ↓ Download
+            </button>
+            <button
+              onClick={clear}
+              className="text-[10px] text-neutral-400 hover:text-neutral-200 px-1.5 py-0.5 rounded hover:bg-neutral-700"
+              title="Clear log"
+            >
+              Clear
+            </button>
+            <button
+              onClick={onClose}
+              className="text-[10px] text-neutral-400 hover:text-neutral-200 px-1 py-0.5 rounded hover:bg-neutral-700"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        {/* Quick filters */}
+        <div className="flex items-center gap-1 pl-3 pr-2 pb-1.5">
+          {(["LLM", "MCP", "OAuth", "Errors"] as FilterKey[]).map((key) => (
+            <button
+              key={key}
+              data-testid={`filter-${key}`}
+              onClick={() => toggleFilter(key)}
+              className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                activeFilters[key]
+                  ? "border-neutral-500 text-neutral-200 bg-neutral-700"
+                  : "border-neutral-700 text-neutral-600 bg-transparent"
+              }`}
+            >
+              {key}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -204,18 +258,18 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto pl-3 pr-2"
       >
-        {events.length === 0 ? (
+        {visibleEvents.length === 0 ? (
           <p className="text-[11px] text-neutral-600 py-4 text-center">No events yet.</p>
         ) : (() => {
           // Build set of correlationIds seen in tool-call events so we can indent correlated responses
           const toolCallCorrelationIds = new Set<string>();
-          for (const event of events) {
+          for (const event of visibleEvents) {
             if (event.type === "tool-call" && event.correlationId) {
               toolCallCorrelationIds.add(event.correlationId);
             }
           }
 
-          return events.map((event) => {
+          return visibleEvents.map((event) => {
             const isCorrelated =
               !!event.correlationId &&
               event.type !== "tool-call" &&

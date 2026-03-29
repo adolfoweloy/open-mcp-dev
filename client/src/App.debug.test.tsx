@@ -183,12 +183,10 @@ describe("App debug wiring", () => {
 
     // After opening, the toggle handle and panel should both be in the DOM
     const handle = screen.getByTitle("Close debug panel");
-    const debugTitle = screen.getByText("Debug");
+    const panelRoot = screen.getByTestId("debug-panel-root");
 
     // Both must share the same parent container (flex row) — not an overlay
-    // DebugPanel root is the grandparent of the "Debug" span (span -> header div -> panel root)
     const handleParent = handle.parentElement!;
-    const panelRoot = debugTitle.parentElement!.parentElement!; // header div -> panel root div
     const panelParent = panelRoot.parentElement!;
 
     // The toggle handle and the debug panel root share the same flex-row parent

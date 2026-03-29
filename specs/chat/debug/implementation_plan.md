@@ -204,7 +204,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Test DebugPanel presentation: (1) step-start events trigger a step separator
