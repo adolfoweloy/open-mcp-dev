@@ -209,7 +209,7 @@ export function McpResourceFrame({
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: `${iframeHeight}px`, transition: "height 300ms ease-out" }}>
+    <div style={{ position: "relative", width: "100%", height: `${iframeHeight}px`, transition: "height 300ms ease-out", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "8px", overflow: "hidden" }}>
       <button
         onClick={() => setIsFullscreen(true)}
         style={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}
