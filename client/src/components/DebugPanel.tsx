@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { DebugActor, DebugEvent } from "../lib/types";
 import { useDebugEmit, useDebugLog } from "../lib/debug-context";
 
@@ -17,6 +17,18 @@ function formatTimestamp(date: Date): string {
   const s = String(date.getSeconds()).padStart(2, "0");
   const ms = String(date.getMilliseconds()).padStart(3, "0");
   return `${h}:${m}:${s}.${ms}`;
+}
+
+function StepSeparator({ step }: { step: number }) {
+  return (
+    <div className="flex items-center gap-2 py-2 select-none">
+      <div className="flex-1 h-px bg-neutral-700" />
+      <span className="text-[10px] font-mono font-semibold text-neutral-500 shrink-0">
+        Step {step}
+      </span>
+      <div className="flex-1 h-px bg-neutral-700" />
+    </div>
+  );
 }
 
 function EventEntry({ event }: { event: DebugEvent }) {
@@ -162,7 +174,14 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
         {events.length === 0 ? (
           <p className="text-[11px] text-neutral-600 py-4 text-center">No events yet.</p>
         ) : (
-          events.map((event) => <EventEntry key={event.id} event={event} />)
+          events.map((event) => (
+            <Fragment key={event.id}>
+              {event.type === "step-start" && (
+                <StepSeparator step={event.step ?? 1} />
+              )}
+              <EventEntry event={event} />
+            </Fragment>
+          ))
         )}
         <div ref={bottomRef} />
       </div>

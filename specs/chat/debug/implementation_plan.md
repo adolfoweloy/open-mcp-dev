@@ -148,7 +148,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Add directional indicators to event entries. Outgoing events (types:
