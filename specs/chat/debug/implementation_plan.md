@@ -135,7 +135,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: high
-    status: todo
+    status: done
 
   # ── Phase 3: Improve event presentation in the panel ──
 

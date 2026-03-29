@@ -1464,6 +1464,81 @@ describe("MCPClientManager", () => {
       const result = await tools["safe-srv__safe_tool"].execute!({}, {} as never);
       assert.ok(result !== undefined, "tool should still return a result despite emit errors");
     });
+
+    it("(6) tool-result event includes durationMs as a non-negative number", async () => {
+      const manager = new MCPClientManager();
+      const transport = await createMockServer([
+        { name: "timed_tool", result: { value: 42 } },
+      ]);
+      await manager.connectWithTransport("duration-srv", transport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["duration-srv"], emitEvent, []);
+      await tools["duration-srv__timed_tool"].execute!({}, { toolCallId: "tc-dur-1" } as never);
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const toolResultEvent = debugEvents.find(
+        (e) => e.event?.actor === "mcp-server" && e.event?.type === "tool-result"
+      );
+      assert.ok(toolResultEvent, "should emit mcp-server tool-result debug event");
+      assert.ok(
+        typeof toolResultEvent.event.durationMs === "number" &&
+          toolResultEvent.event.durationMs >= 0,
+        `durationMs should be a non-negative number, got: ${toolResultEvent.event.durationMs}`
+      );
+    });
+
+    it("(7) tool-error event includes durationMs as a non-negative number", async () => {
+      const manager = new MCPClientManager();
+      const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+      const srv = new Server(
+        { name: "duration-error-srv", version: "1.0.0" },
+        { capabilities: { tools: {} } }
+      );
+      srv.setRequestHandler(ListToolsRequestSchema, async () => ({
+        tools: [
+          {
+            name: "failing_tool",
+            description: "always fails",
+            inputSchema: { type: "object", properties: {} },
+          },
+        ],
+      }));
+      srv.setRequestHandler(CallToolRequestSchema, async () => {
+        throw new Error("intentional failure");
+      });
+      await srv.connect(serverTransport);
+      await manager.connectWithTransport("dur-err-srv", clientTransport);
+
+      const events: object[] = [];
+      const emitEvent = (e: object) => events.push(e);
+
+      const tools = await manager.getToolsForAiSdk(["dur-err-srv"], emitEvent, []);
+      await assert.rejects(
+        async () => { await tools["dur-err-srv__failing_tool"].execute!({}, { toolCallId: "tc-dur-err" } as never); },
+        /intentional failure/
+      );
+
+      const debugEvents = events.filter(
+        (e): e is { type: string; event: Record<string, unknown> } =>
+          typeof e === "object" && e !== null && (e as Record<string, unknown>)["type"] === "debug"
+      );
+      const toolErrorEvent = debugEvents.find(
+        (e) => e.event?.actor === "error" && e.event?.type === "tool-error"
+      );
+      assert.ok(toolErrorEvent, "should emit error tool-error debug event");
+      assert.ok(
+        typeof toolErrorEvent.event.durationMs === "number" &&
+          toolErrorEvent.event.durationMs >= 0,
+        `durationMs should be a non-negative number, got: ${toolErrorEvent.event.durationMs}`
+      );
+    });
   });
 
   describe("callWithAuth — debug event emission", () => {
