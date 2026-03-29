@@ -144,6 +144,14 @@ Immediately after the handshake response the host pushes two notifications into 
 - Actor colors are hardcoded Tailwind utility classes per actor enum value (not computed from strings) to satisfy Tailwind CSS 4's static scan requirement
 - MCP event granularity is logical (callTool call + result), not wire-level JSON-RPC — the SDK `Client` does not expose transport hooks
 
+## Stream Cancellation
+
+- `useChat.stop()` (Vercel AI SDK) is the client-side cancel primitive; it calls `AbortController.abort()` on the fetch
+- `isLoading` is the canonical "streaming in progress" flag; the Stop/Send button toggle is gated on it
+- Post-cancel synthetic messages are injected via `setMessages` using a `useRef` mirror of the messages array to avoid stale-closure issues
+- Discriminant for user cancel vs error: `error === null` after cancel, `error !== null` after network/server failure
+- `streamText` on the server does not receive `abortSignal`; in-flight LLM API calls for the cancelled step may run to completion (acceptable resource leak for a local single-user app)
+
 ## Error Handling
 
 - MCP connection failures at startup: warn and continue (non-fatal)

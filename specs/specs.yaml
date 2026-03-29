@@ -94,3 +94,9 @@ specs:
     feature: debug-panel-ux
     description: Debug panel scroll breaks when expanding log entries; poor payload styling and no expand/collapse affordance
     status: done
+
+  - id: chat__cancel_chat
+    domain: chat
+    feature: cancel_chat
+    description: Stop button replaces Send during streaming; cancels generation via useChat.stop(), preserves partial response, appends interrupted notice, and restores input
+    status: todo
