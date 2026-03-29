@@ -40,6 +40,11 @@ function getDirectionIndicator(type: string): string {
   return "";
 }
 
+function formatDuration(ms: number): string {
+  if (ms >= 1000) return `(${(ms / 1000).toFixed(1)}s)`;
+  return `(${ms}ms)`;
+}
+
 function EventEntry({ event }: { event: DebugEvent }) {
   const [expanded, setExpanded] = useState(false);
   const colorClass = ACTOR_COLORS[event.actor];
@@ -61,6 +66,11 @@ function EventEntry({ event }: { event: DebugEvent }) {
           <span className="text-neutral-400 shrink-0">{direction}</span>
         )}
         <span className="text-neutral-300 break-all">{event.summary}</span>
+        {event.durationMs !== undefined && (
+          <span className="text-neutral-500 shrink-0 ml-1">
+            {formatDuration(event.durationMs)}
+          </span>
+        )}
       </div>
       {expanded && event.payload && (
         <pre className="mt-1 ml-2 text-[10px] text-neutral-400 whitespace-pre-wrap break-all bg-neutral-900 p-2 rounded">

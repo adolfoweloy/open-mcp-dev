@@ -170,7 +170,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Add colour-coded left borders to event entries. Each event entry gets a 3px
