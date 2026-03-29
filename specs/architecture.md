@@ -8,7 +8,7 @@
 | Backend framework | Express 4 |
 | Frontend | React 19 + TypeScript + Vite 6 |
 | Styling | Tailwind CSS 4 |
-| LLM streaming | Vercel AI SDK (`ai` v6) |
+| LLM streaming | Vercel AI SDK (`ai` v4) |
 | MCP client | `@modelcontextprotocol/sdk` v1 |
 | Config parsing | `js-yaml` |
 | Build | `tsx` (dev), `tsc` (prod) |
@@ -49,13 +49,51 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 
 - HTTP servers: try `StreamableHTTPClientTransport` first, fall back to `SSEClientTransport`
 - STDIO servers: `StdioClientTransport`
-- Tool names namespaced as `{serverId}__{toolName}` to avoid cross-server collisions
+- Tool names namespaced as `{serverId}__{toolName}` to avoid cross-server collisions; hyphens in the tool name are replaced with underscores (e.g. `my-tool` from server `my-server` → `my-server__my_tool`)
+- `prefer_sse: true` is a config schema field passed through to storage, but `_doConnect` does not currently consult it — StreamableHTTP is always tried first regardless
 
-## MCP UI (ChatGPT Apps SDK Compatibility)
+## MCP UI Widget Protocol
 
-- MCP resource iframes communicate with the host via JSON-RPC 2.0 `postMessage`
-- Host injects a `window.openai` shim; supports `requestDisplayMode`, `ui/message`, `tools/call`, `ui/notifications/tool-result`, `ui/update-model-context`
-- MCP apps built for ChatGPT work unmodified
+MCP tools can declare a UI resource by setting `_meta["ui/resourceUri"]` to an `mcp://` URI. When a tool result carries this field, `getToolsForAiSdk` attaches `_uiResourceUri` to the result object. `MessageBubble` detects this (or falls back to `mimeType: "text/html"` / `mcp://` URIs in the result content array) and renders `McpResourceFrame`.
+
+### Iframe rendering
+
+`McpResourceFrame` creates a sandboxed iframe (`allow-scripts allow-forms allow-same-origin`). The `src` is `/api/mcp/resource/{serverId}?uri={encodedUri}`. The server fetches the MCP resource via `client.readResource({ uri })` and returns the raw HTML. The widget HTML is responsible for all UI; it communicates back to the host via JSON-RPC 2.0 `postMessage`.
+
+### Handshake
+
+Communication is **widget-initiated**: the widget sends `ui/initialize` first. The host responds with:
+
+```json
+{ "protocolVersion": "2025-11-21", "hostInfo": { ... }, "hostCapabilities": { ... } }
+```
+
+Immediately after the handshake response the host pushes two notifications into the widget:
+- `ui/notifications/tool-input` — the tool arguments that produced this resource
+- `ui/notifications/tool-result` — the raw tool result
+
+### Widget → Host messages
+
+| Method | Params | Host action |
+|--------|--------|-------------|
+| `ui/initialize` | `{ protocolVersion, clientInfo }` | Returns handshake object; pushes tool-input + tool-result |
+| `ui/request-display-mode` | `{ mode: "fullscreen" \| "inline" }` | Toggles fullscreen overlay |
+| `ui/message` | `{ content: [{ type: "text", text }] }` | Calls `append({ role: "user", content: text })` on `useChat` — equivalent to the ChatGPT Apps SDK `sendFollowUpMessage`; triggers a new LLM turn |
+| `tools/call` | `{ name, arguments }` | POSTs to `/api/mcp/tool/{serverId}`; returns JSON result directly (no LLM involved) |
+| `ui/notifications/size-changed` | `{ height }` | Resizes the iframe container |
+| `ui/update-model-context` | `{ context }` | Calls `onUpdateContext` |
+
+### Host → Widget messages
+
+| Message | When sent |
+|---------|-----------|
+| Response to `ui/initialize` | After handshake |
+| `ui/notifications/tool-input` | After handshake |
+| `ui/notifications/tool-result` | After handshake |
+| `requestDisplayMode` | When user clicks "Exit fullscreen" in the host UI |
+| Responses to `ui/request-display-mode`, `ui/message`, `tools/call` | In response to widget requests |
+
+> Note: the widget→host direction uses `ui/request-display-mode` (with the `ui/` prefix); the host→widget exit-fullscreen notification uses `requestDisplayMode` (no prefix) to match ChatGPT Apps SDK behavior.
 
 ## Dropdown / Overlay Rendering
 
@@ -81,6 +119,22 @@ All runtime config lives in a single `config.yaml` at the project root (gitignor
 - `Conversation.enabledServers?: string[]` persists toggle state per conversation in localStorage; absence means all connected servers enabled
 - `ChatRequest.disabledServers: string[]` carries the off-toggled server IDs to the backend
 - Backend blocks tool calls from disabled servers server-side (returns error string); tools remain visible to the LLM
+
+## Model Configuration
+
+- `GET /api/models` returns the union of a hardcoded OpenAI model list (when an OpenAI API key is configured) and dynamically fetched Ollama models (`GET {ollamaBaseUrl}/api/tags`)
+- Model selection is `{ provider: "openai" | "ollama", id: string }` — stored in `ChatRequest.model` and sent on every request
+- `ModelSelector` auto-selects the first available model on mount
+- Server-side `createModel(selection, config)` dispatches:
+  - `openai` provider: `createOpenAI({ apiKey })` from `@ai-sdk/openai`
+  - `ollama` provider: also `createOpenAI` but pointed at `{ollamaBaseUrl}/v1` — the native `@ai-sdk/ollama` package is deliberately avoided because it silently drops tool-call tokens
+- System prompt is per-provider: `config.llm.openai.system_prompt` / `config.llm.ollama.system_prompt`
+
+## Multi-step LLM Tool Loop
+
+- `streamText` is called with `maxSteps: 20`; Vercel AI SDK drives the loop automatically — after each step that ends with tool calls it feeds the results back for the next LLM step
+- `onStepFinish` callback emits debug events for each LLM request/response boundary
+- Disabled servers (from `ChatRequest.disabledServers`) are enforced inside the `execute` wrapper of each tool: the wrapper returns an error string if the server is disabled, but the tool definition remains visible to the LLM so it can reason about unavailability
 
 ## Debug Event Pipeline
 
