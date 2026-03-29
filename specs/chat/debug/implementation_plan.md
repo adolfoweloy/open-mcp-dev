@@ -180,7 +180,7 @@ tasks:
     refs:
       - specs/chat/debug/design.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Add correlated event grouping. When rendering the event list, detect events

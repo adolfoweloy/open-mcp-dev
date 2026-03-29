@@ -11,6 +11,15 @@ const ACTOR_COLORS: Record<DebugActor, string> = {
   error: "text-red-400",
 };
 
+const ACTOR_BORDER_COLORS: Record<DebugActor, string> = {
+  llm: "border-l-blue-400",
+  "mcp-client": "border-l-purple-400",
+  "mcp-server": "border-l-green-400",
+  oauth: "border-l-orange-400",
+  bridge: "border-l-pink-400",
+  error: "border-l-red-400",
+};
+
 function formatTimestamp(date: Date): string {
   const h = String(date.getHours()).padStart(2, "0");
   const m = String(date.getMinutes()).padStart(2, "0");
@@ -48,11 +57,12 @@ function formatDuration(ms: number): string {
 function EventEntry({ event }: { event: DebugEvent }) {
   const [expanded, setExpanded] = useState(false);
   const colorClass = ACTOR_COLORS[event.actor];
+  const borderClass = ACTOR_BORDER_COLORS[event.actor];
   const direction = getDirectionIndicator(event.type);
 
   return (
     <div
-      className="border-b border-neutral-800 py-1 cursor-pointer hover:bg-neutral-800/50"
+      className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2 cursor-pointer hover:bg-neutral-800/50`}
       onClick={() => setExpanded((v) => !v)}
     >
       <div className="flex items-start gap-1 font-mono text-[11px]">
