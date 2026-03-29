@@ -68,59 +68,84 @@ export function MessageBubble({ message, onSendMessage, onUpdateContext }: Props
     );
   }
 
-  return (
-    <div style={containerStyle}>
-      <div style={bubbleStyle}>
-        {parts.map((part, i) => {
-          if (part.type === "text") {
-            return <pre key={i} style={{ margin: 0, whiteSpace: "pre-wrap" }}>{part.text as string}</pre>;
-          }
+  const renderedParts = parts.map((part, i) => {
+    if (part.type === "text") {
+      const text = part.text as string;
+      if (!text || !text.trim()) return null;
+      return <pre key={i} style={{ margin: 0, whiteSpace: "pre-wrap" }}>{text}</pre>;
+    }
 
-          if (part.type === "tool-invocation") {
-            const inv = part.toolInvocation as {
-              toolCallId?: string;
-              toolName?: string;
-              args?: unknown;
-              result?: unknown;
-              state?: string;
-            };
+    if (part.type === "tool-invocation") {
+      const inv = part.toolInvocation as {
+        toolCallId?: string;
+        toolName?: string;
+        args?: unknown;
+        result?: unknown;
+        state?: string;
+      };
+
+      // MCP Apps SDK: tool result carries _uiResourceUri — render it in an iframe
+      if (inv.state === "result" && inv.result) {
+        const uiResourceUri = (inv.result as Record<string, unknown>)._uiResourceUri as string | undefined;
+        if (uiResourceUri) {
+          const serverId = (inv.toolName ?? "").split("__")[0];
+          return (
+            <McpResourceFrame
+              key={inv.toolCallId ?? i}
+              serverId={serverId}
+              uri={uiResourceUri}
+              onSendMessage={onSendMessage ?? (() => {})}
+              onUpdateContext={onUpdateContext ?? (() => {})}
+            />
+          );
+        }
+
+        // Fallback: inline HTML content in the result itself (mcp:// URI or data:text/html)
+        const content = (inv.result as { content?: unknown }).content;
+        if (isHtmlContent(content)) {
+          const resource = extractHtmlResource(content);
+          if (resource) {
             return (
-              <ToolCallResult
+              <McpResourceFrame
                 key={inv.toolCallId ?? i}
-                toolName={inv.toolName ?? "unknown"}
-                args={inv.args ?? {}}
-                result={inv.result ?? null}
-                isError={isError}
+                serverId={resource.serverId}
+                uri={resource.uri}
+                onSendMessage={onSendMessage ?? (() => {})}
+                onUpdateContext={onUpdateContext ?? (() => {})}
               />
             );
           }
+        }
+      }
 
-          if (part.type === "tool-result") {
-            const content = part.content as unknown;
-            if (isHtmlContent(content)) {
-              const resource = extractHtmlResource(content);
-              if (resource) {
-                return (
-                  <McpResourceFrame
-                    key={i}
-                    serverId={resource.serverId}
-                    uri={resource.uri}
-                    onSendMessage={onSendMessage ?? (() => {})}
-                    onUpdateContext={onUpdateContext ?? (() => {})}
-                  />
-                );
-              }
-            }
-            return (
-              <pre key={i} style={{ margin: 0, fontSize: "0.85em" }}>
-                {JSON.stringify(content, null, 2)}
-              </pre>
-            );
-          }
+      return (
+        <ToolCallResult
+          key={inv.toolCallId ?? i}
+          toolName={inv.toolName ?? "unknown"}
+          args={inv.args ?? {}}
+          result={inv.result ?? null}
+          isError={isError}
+        />
+      );
+    }
 
-          return null;
-        })}
+    return null;
+  });
+
+  if (renderedParts.every((p) => p === null)) {
+    if (isUser) return null;
+    return (
+      <div style={containerStyle}>
+        <div style={{ ...bubbleStyle, background: "#fff3cd", color: "#856404", fontStyle: "italic", fontSize: "0.9em" }}>
+          The model returned an empty response and did not call any tool. This usually means the model tried to call a tool but its output format was not recognised. Check the Debug panel for details.
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div style={containerStyle}>
+      <div style={bubbleStyle}>{renderedParts}</div>
     </div>
   );
 }

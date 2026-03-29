@@ -87,7 +87,7 @@ export function createChatRouter(
             tools,
             maxSteps: 20,
             onError: (err) => console.error("[chat]", err),
-            onStepFinish: ({ toolCalls, finishReason, usage }) => {
+            onStepFinish: ({ toolCalls, finishReason, usage, text, warnings }) => {
               const durationMs = Date.now() - stepStartTime;
               const currentStep = stepCount;
 
@@ -101,6 +101,14 @@ export function createChatRouter(
                     toolCalls.map((tc) => ({ name: tc.toolName, args: tc.args }))
                   ),
                 });
+              } else if (finishReason === "stop" && toolNames.length > 0) {
+                emitDebug({
+                  actor: "llm",
+                  type: "tool-decision",
+                  step: currentStep,
+                  summary: `No tools called — model responded directly`,
+                  payload: serializePayload({ availableTools: toolNames, response: text }),
+                });
               }
 
               emitDebug({
@@ -109,7 +117,7 @@ export function createChatRouter(
                 step: currentStep,
                 durationMs,
                 summary: `Step ${currentStep} finish: ${finishReason} (${durationMs}ms)`,
-                payload: serializePayload({ step: currentStep, finishReason, usage, durationMs }),
+                payload: serializePayload({ step: currentStep, finishReason, usage, durationMs, text, warnings }),
               });
 
               if (finishReason === "tool-calls") {

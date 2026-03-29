@@ -85,6 +85,8 @@ export function Chat({
             summary: event.summary as string,
             payload: event.payload as string | undefined,
             correlationId: event.correlationId as string | undefined,
+            step: event.step as number | undefined,
+            durationMs: event.durationMs as number | undefined,
           });
         }
       }
@@ -113,6 +115,10 @@ export function Chat({
 
   const handleSendMessage = useCallback((content: string) => {
     void appendRef.current({ role: "user", content });
+  }, []);
+
+  const handleUpdateContext = useCallback((_context: string) => {
+    // TODO: persist iframe-provided context and include in subsequent LLM requests
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -148,6 +154,7 @@ export function Chat({
             : displayMessages
         }
         onSendMessage={handleSendMessage}
+        onUpdateContext={handleUpdateContext}
       />
 
       <form onSubmit={handleSubmit} style={{ display: "flex", gap: "8px", padding: "8px" }}>

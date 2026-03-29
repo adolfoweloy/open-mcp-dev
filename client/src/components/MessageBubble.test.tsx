@@ -52,7 +52,7 @@ describe("MessageBubble", () => {
           result: { data: [] },
           state: "result",
         },
-      } as UIMessage["parts"][0],
+      } as unknown as UIMessage["parts"][0],
     ]);
     render(<MessageBubble message={msg} />);
     // ToolCallResult renders collapsed — shows tool name button

@@ -12,7 +12,7 @@ llm:
   ollama:
     base_url: "http://localhost:11434"  # Optional: Ollama base URL (default: http://localhost:11434)
     system_prompt: |                    # Optional: system prompt for Ollama models
-      You are a helpful assistant.
+      You are a helpful assistant with access to tools. Use tools proactively whenever they would help fulfill the user's request. If you are unsure which specific item the user wants, use a tool to list or search available options rather than asking for clarification.
 
 mcp_servers:
   # Example: stdio MCP server

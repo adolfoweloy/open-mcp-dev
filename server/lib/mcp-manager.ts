@@ -648,7 +648,8 @@ export class MCPClientManager {
       }
 
       for (const tool of tools) {
-        const key = `${serverId}__${tool.name}`;
+        console.log(`[mcp-manager] tool "${tool.name}" _meta:`, JSON.stringify(tool._meta));
+        const key = `${serverId}__${tool.name.replace(/-/g, '_')}`;
         // Normalize schema: ensure top-level type: "object" for Anthropic compatibility
         const rawSchema =
           tool.inputSchema && typeof tool.inputSchema === "object"
@@ -661,6 +662,13 @@ export class MCPClientManager {
         if (!schema["properties"]) {
           schema["properties"] = {};
         }
+        if (schema["additionalProperties"] === undefined) {
+          schema["additionalProperties"] = false;
+        }
+
+        // MCP Apps SDK: tool may declare a UI resource to render after the call
+        const toolMeta = tool._meta as Record<string, unknown> | undefined;
+        const uiResourceUri = toolMeta?.["ui/resourceUri"] as string | undefined;
 
         toolSet[key] = {
           description: tool.description ?? "",
@@ -732,6 +740,10 @@ export class MCPClientManager {
               });
             } catch { /* swallow */ }
 
+            // Attach the UI resource URI so the frontend knows to render an iframe
+            if (uiResourceUri && typeof result === "object" && result !== null) {
+              return { ...result as object, _uiResourceUri: uiResourceUri };
+            }
             return result;
           },
         };
