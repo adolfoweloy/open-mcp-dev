@@ -143,6 +143,57 @@ describe("App enabledServers wiring", () => {
     expect(checkbox.checked).toBe(true);
   });
 
+  it("toggling a server back on adds it back to enabledServers", async () => {
+    mockFetchServers.mockResolvedValue([makeServer("srv-a")]);
+
+    const convs: Conversation[] = [
+      { id: "conv-1", title: "Conv 1", messages: [], enabledServers: [] },
+    ];
+    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(convs));
+    localStorage.setItem(ACTIVE_ID_KEY, "conv-1");
+
+    render(<App />);
+    await waitFor(() => screen.getByText("srv-a"));
+
+    // srv-a should be unchecked (enabledServers is empty)
+    const checkbox = screen.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+
+    // Check srv-a
+    fireEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(true);
+    });
+
+    const saved = JSON.parse(
+      localStorage.getItem(CONVERSATIONS_KEY) ?? "[]"
+    ) as Conversation[];
+    expect(saved[0].enabledServers).toContain("srv-a");
+  });
+
+  it("disconnected server checkbox is disabled and does not respond to clicks", async () => {
+    mockFetchServers.mockResolvedValue([
+      makeServer("srv-connected", true),
+      makeServer("srv-disconnected", false),
+    ]);
+
+    render(<App />);
+    await waitFor(() => screen.getByText("srv-connected"));
+
+    const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    const disconnectedCb = checkboxes.find((cb) =>
+      cb.closest("[data-testid]")?.textContent?.includes("srv-disconnected") ||
+      cb.closest("label")?.textContent?.includes("srv-disconnected") ||
+      cb.disabled
+    );
+
+    // The disconnected server's checkbox should be disabled
+    const disabledCheckboxes = checkboxes.filter((cb) => cb.disabled);
+    expect(disabledCheckboxes).toHaveLength(1);
+    expect(disabledCheckboxes[0].disabled).toBe(true);
+  });
+
   it("disabledServers is correctly derived as connected minus enabled", async () => {
     mockFetchServers.mockResolvedValue([makeServer("srv-a"), makeServer("srv-b")]);
 

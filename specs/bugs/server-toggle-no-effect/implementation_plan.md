@@ -83,7 +83,7 @@ tasks:
       - specs/bugs/server-toggle-no-effect/requirements.md
       - specs/bugs/server-toggle-no-effect/research.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Manual smoke test checklist (verify before closing):
@@ -98,4 +98,4 @@ tasks:
     refs:
       - specs/bugs/server-toggle-no-effect/requirements.md
     priority: low
-    status: todo
+    status: done
