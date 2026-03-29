@@ -55,10 +55,8 @@ export function App() {
 
   const activeConversationRef = useRef<Conversation | null>(null);
 
-  if (activeConversationRef.current?.id !== activeConversationId) {
-    activeConversationRef.current =
-      conversations.find((c) => c.id === activeConversationId) ?? null;
-  }
+  activeConversationRef.current =
+    conversations.find((c) => c.id === activeConversationId) ?? null;
   const activeConversation = activeConversationRef.current;
 
   function createNewConversation() {

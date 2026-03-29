@@ -44,7 +44,7 @@ tasks:
       - specs/bugs/server-toggle-no-effect/research.md
       - specs/bugs/server-toggle-no-effect/requirements.md
     priority: high
-    status: todo
+    status: done
 
   - task: >
       Add or update tests for the server toggle flow. Test file:
