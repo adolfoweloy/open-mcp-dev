@@ -219,7 +219,7 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
     <div
       data-testid="debug-panel-root"
       style={{ width: `${width}px`, position: "relative" }}
-      className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden"
+      className="flex-shrink-0 flex flex-col bg-neutral-900 overflow-hidden min-h-0 h-full"
     >
       {/* Resize handle — 8px grab area straddling the left edge, 1px visible line */}
       <div
