@@ -1,6 +1,6 @@
 id: bugs__iframe-missing-border
 overview: Add a visible border to the inline-mode MCP resource iframe container so widget boundaries are distinguishable from surrounding chat content
-status: planning
+status: done
 acceptance_criteria:
   - The inline-mode wrapper div around the iframe displays a 1px solid border with a muted/neutral colour (e.g. rgba(255,255,255,0.15) or similar dark-theme-appropriate tone) and rounded corners (e.g. 8px border-radius)
   - Every McpResourceFrame rendered in inline mode shows the border regardless of content or height

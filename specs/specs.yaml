@@ -81,7 +81,7 @@ specs:
     domain: bugs
     feature: iframe-missing-border
     description: MCP resource iframe has no visible border to delimit widget boundaries
-    status: todo
+    status: wip
 
   - id: bugs__server-toggle-no-effect
     domain: bugs
