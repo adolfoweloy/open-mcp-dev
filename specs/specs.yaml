@@ -99,7 +99,7 @@ specs:
     domain: chat
     feature: cancel_chat
     description: Stop button replaces Send during streaming; cancels generation via useChat.stop(), preserves partial response, appends interrupted notice, and restores input
-    status: todo
+    status: wip
 
   - id: settings__show_tools
     domain: settings

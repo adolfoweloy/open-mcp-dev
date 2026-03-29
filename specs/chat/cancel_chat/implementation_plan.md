@@ -3,7 +3,7 @@ overview: >
   Add stream cancellation to Chat.tsx — the Send button becomes Stop while streaming,
   clicking it aborts the stream via useChat.stop(), preserves partial output, appends a
   synthetic "Generation interrupted" assistant message, and restores the user's draft input.
-status: planning
+status: done
 acceptance_criteria:
   - While isLoading is true the submit button reads "Stop"; while isLoading is false it reads "Send"
   - Clicking Stop calls useChat.stop(), immediately appends a synthetic assistant message containing "⚠ Generation interrupted." to the message thread, and the partial response already streamed is preserved above it
