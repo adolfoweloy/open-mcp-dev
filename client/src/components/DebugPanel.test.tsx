@@ -243,7 +243,7 @@ describe("DebugPanel", () => {
       </Wrapper>
     );
 
-    // Find the resize handle div (w-1 cursor-col-resize)
+    // Find the resize handle div (cursor-col-resize)
     const handle = document.querySelector(".cursor-col-resize")!;
     expect(handle).toBeInTheDocument();
 
@@ -256,7 +256,42 @@ describe("DebugPanel", () => {
     expect(onWidthChange).toHaveBeenCalled();
     const newWidth = onWidthChange.mock.calls[0][0];
     expect(newWidth).toBeGreaterThanOrEqual(240); // min bound
-    expect(newWidth).toBeLessThanOrEqual(window.innerWidth * 0.8); // max bound
+    // max = viewport - sidebar(280) - min-chat(400)
+    expect(newWidth).toBeLessThanOrEqual(window.innerWidth - 280 - 400);
+  });
+
+  it("resize max width preserves at least 400px for the chat area", () => {
+    Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
+
+    const onWidthChange = vi.fn();
+    render(
+      <Wrapper>
+        <DebugPanel
+          isOpen={true}
+          width={300}
+          onClose={vi.fn()}
+          onWidthChange={onWidthChange}
+        />
+      </Wrapper>
+    );
+
+    const handle = document.querySelector(".cursor-col-resize")!;
+    // Drag far left — would grow width well beyond the allowed maximum
+    fireEvent.mouseDown(handle, { clientX: 600 });
+    fireEvent.mouseMove(window, { clientX: 0 }); // 600px left drag
+    fireEvent.mouseUp(window);
+
+    expect(onWidthChange).toHaveBeenCalled();
+    const newWidth = onWidthChange.mock.calls[0][0];
+    // max = 1200 - 280 (sidebar) - 400 (min chat) = 520
+    expect(newWidth).toBeLessThanOrEqual(1200 - 280 - 400);
+  });
+
+  it("resize grab area has cursor-col-resize class", () => {
+    renderPanel();
+    const grabArea = document.querySelector("[data-testid='resize-grab-area']")!;
+    expect(grabArea).toBeInTheDocument();
+    expect(grabArea.className).toContain("cursor-col-resize");
   });
 
   it("resize is clamped to minimum 240px", () => {

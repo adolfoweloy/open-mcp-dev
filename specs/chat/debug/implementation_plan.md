@@ -78,7 +78,7 @@ tasks:
     refs:
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   # ── Phase 2: Enrich server-side events ──
 
