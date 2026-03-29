@@ -143,16 +143,16 @@ describe("DebugPanel", () => {
     renderPanel([event]);
 
     // Payload not visible before click
-    expect(screen.queryByText(/\{"key":/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"key"/)).not.toBeInTheDocument();
 
     // Click to expand
     const entry = screen.getByText("Expandable event").closest("div")!;
     fireEvent.click(entry);
-    expect(screen.getByText(/\{"key":/)).toBeInTheDocument();
+    expect(screen.getByText(/"key"/)).toBeInTheDocument();
 
     // Click again to collapse
     fireEvent.click(entry);
-    expect(screen.queryByText(/\{"key":/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"key"/)).not.toBeInTheDocument();
   });
 
   it("clicking entry without payload does not crash", () => {
@@ -517,6 +517,94 @@ describe("DebugPanel", () => {
 
       fireEvent.click(screen.getByTestId("filter-LLM"));
       expect(screen.getByText("LLM event")).toBeInTheDocument();
+    });
+  });
+
+  describe("scroll container layout", () => {
+    it("event list container has min-h-0 class", () => {
+      renderPanel([makeEvent({ summary: "Test event" })]);
+      const scrollContainer = document.querySelector(".overflow-y-auto");
+      expect(scrollContainer?.className).toContain("min-h-0");
+    });
+  });
+
+  describe("triangle expand/collapse indicator", () => {
+    it("entry with payload shows ▶ when collapsed", () => {
+      const event = makeEvent({ summary: "Has payload", payload: "some data" });
+      renderPanel([event]);
+      expect(screen.getByText("▶")).toBeInTheDocument();
+    });
+
+    it("entry with payload shows ▼ when expanded", () => {
+      const event = makeEvent({ summary: "Has payload", payload: "some data" });
+      renderPanel([event]);
+      const entry = screen.getByText("Has payload").closest("div.border-b")!;
+      fireEvent.click(entry);
+      expect(screen.getByText("▼")).toBeInTheDocument();
+      expect(screen.queryByText("▶")).not.toBeInTheDocument();
+    });
+
+    it("entry with payload has cursor-pointer class", () => {
+      const event = makeEvent({ summary: "Has payload", payload: "some data" });
+      renderPanel([event]);
+      const entry = screen.getByText("Has payload").closest("div.border-b")!;
+      expect(entry.className).toContain("cursor-pointer");
+    });
+
+    it("entry without payload shows no triangle indicator", () => {
+      const event = makeEvent({ summary: "No payload", payload: undefined });
+      renderPanel([event]);
+      expect(screen.queryByText("▶")).not.toBeInTheDocument();
+      expect(screen.queryByText("▼")).not.toBeInTheDocument();
+    });
+
+    it("entry without payload does not have cursor-pointer class", () => {
+      const event = makeEvent({ summary: "No payload", payload: undefined });
+      renderPanel([event]);
+      const entry = screen.getByText("No payload").closest("div.border-b")!;
+      expect(entry.className).not.toContain("cursor-pointer");
+    });
+  });
+
+  describe("expanded payload styling", () => {
+    it("expanded payload pre has bg-neutral-950, text-neutral-200, max-h-64, overflow-y-auto, font-mono", () => {
+      const event = makeEvent({ actor: "llm", summary: "LLM event", payload: "some data" });
+      renderPanel([event]);
+      const entry = screen.getByText("LLM event").closest("div.border-b")!;
+      fireEvent.click(entry);
+      const pre = entry.querySelector("pre")!;
+      expect(pre.className).toContain("bg-neutral-950");
+      expect(pre.className).toContain("text-neutral-200");
+      expect(pre.className).toContain("max-h-64");
+      expect(pre.className).toContain("overflow-y-auto");
+      expect(pre.className).toContain("font-mono");
+    });
+
+    it("expanded payload pre has actor border-l colour class", () => {
+      const event = makeEvent({ actor: "llm", summary: "LLM event", payload: "some data" });
+      renderPanel([event]);
+      const entry = screen.getByText("LLM event").closest("div.border-b")!;
+      fireEvent.click(entry);
+      const pre = entry.querySelector("pre")!;
+      expect(pre.className).toContain("border-l-blue-400");
+    });
+
+    it("valid JSON payload is pretty-printed with 2-space indentation", () => {
+      const event = makeEvent({ summary: "JSON event", payload: '{"key":"value"}' });
+      renderPanel([event]);
+      const entry = screen.getByText("JSON event").closest("div.border-b")!;
+      fireEvent.click(entry);
+      const pre = entry.querySelector("pre")!;
+      expect(pre.textContent).toBe('{\n  "key": "value"\n}');
+    });
+
+    it("non-JSON payload is displayed as-is", () => {
+      const event = makeEvent({ summary: "Plain event", payload: "plain text content" });
+      renderPanel([event]);
+      const entry = screen.getByText("Plain event").closest("div.border-b")!;
+      fireEvent.click(entry);
+      const pre = entry.querySelector("pre")!;
+      expect(pre.textContent).toBe("plain text content");
     });
   });
 

@@ -93,4 +93,4 @@ specs:
     domain: bugs
     feature: debug-panel-ux
     description: Debug panel scroll breaks when expanding log entries; poor payload styling and no expand/collapse affordance
-    status: wip
+    status: done

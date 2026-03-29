@@ -20,7 +20,7 @@ tasks:
       fix are sufficient.
     refs: [specs/bugs/debug-panel-ux/requirements.md, specs/bugs/debug-panel-ux/research.md]
     priority: high
-    status: todo
+    status: done
   - task: >
       Add expand/collapse triangle indicator to EventEntry in client/src/components/DebugPanel.tsx.
       In the EventEntry component (~line 57-92), modify the entry row to:
@@ -37,7 +37,7 @@ tasks:
          to keep alignment consistent with entries that have the triangle.
     refs: [specs/bugs/debug-panel-ux/requirements.md, specs/bugs/debug-panel-ux/research.md]
     priority: high
-    status: todo
+    status: done
   - task: >
       Restyle expanded payload block in EventEntry in client/src/components/DebugPanel.tsx.
       Replace the current payload `<pre>` (currently ~lines 85-89 with classes
@@ -54,7 +54,7 @@ tasks:
          extracted to a small helper const inside EventEntry.
     refs: [specs/bugs/debug-panel-ux/requirements.md, specs/bugs/debug-panel-ux/research.md]
     priority: high
-    status: todo
+    status: done
   - task: >
       Test all three fixes in client/src/components/DebugPanel.test.tsx.
       Add or update tests for the following scenarios:
@@ -87,4 +87,4 @@ tasks:
       (check existing tests for which providers are needed, likely DebugContext).
     refs: [specs/bugs/debug-panel-ux/requirements.md, specs/bugs/debug-panel-ux/research.md]
     priority: high
-    status: todo
+    status: done

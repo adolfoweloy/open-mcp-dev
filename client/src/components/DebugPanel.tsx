@@ -54,18 +54,34 @@ function formatDuration(ms: number): string {
   return `(${ms}ms)`;
 }
 
+function formatPayload(payload: string): string {
+  try {
+    return JSON.stringify(JSON.parse(payload), null, 2);
+  } catch {
+    return payload;
+  }
+}
+
 function EventEntry({ event, isCorrelated }: { event: DebugEvent; isCorrelated?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const colorClass = ACTOR_COLORS[event.actor];
   const borderClass = ACTOR_BORDER_COLORS[event.actor];
   const direction = getDirectionIndicator(event.type);
+  const hasPayload = !!event.payload;
 
   return (
     <div
-      className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2 cursor-pointer hover:bg-neutral-800/50${isCorrelated ? " ml-4" : ""}`}
-      onClick={() => setExpanded((v) => !v)}
+      className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2${hasPayload ? " cursor-pointer hover:bg-neutral-800/50" : ""}${isCorrelated ? " ml-4" : ""}`}
+      onClick={hasPayload ? () => setExpanded((v) => !v) : undefined}
     >
       <div className="flex items-start gap-1 font-mono text-[11px]">
+        {hasPayload ? (
+          <span className="text-neutral-500 text-[10px] mr-1 inline-block w-3 shrink-0">
+            {expanded ? "▼" : "▶"}
+          </span>
+        ) : (
+          <span className="inline-block w-3 mr-1 shrink-0" />
+        )}
         <span className="text-neutral-500 shrink-0">
           [{formatTimestamp(event.timestamp)}]
         </span>
@@ -83,8 +99,8 @@ function EventEntry({ event, isCorrelated }: { event: DebugEvent; isCorrelated?:
         )}
       </div>
       {expanded && event.payload && (
-        <pre className="mt-1 ml-2 text-[10px] text-neutral-400 whitespace-pre-wrap break-all bg-neutral-900 p-2 rounded">
-          {event.payload}
+        <pre className={`mt-1 ml-2 text-[10px] text-neutral-200 whitespace-pre-wrap break-all bg-neutral-950 p-2 rounded max-h-64 overflow-y-auto font-mono border-l-2 ${borderClass}`}>
+          {formatPayload(event.payload)}
         </pre>
       )}
     </div>
@@ -256,7 +272,7 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto pl-3 pr-2"
+        className="flex-1 min-h-0 overflow-y-auto pl-3 pr-2"
       >
         {visibleEvents.length === 0 ? (
           <p className="text-[11px] text-neutral-600 py-4 text-center">No events yet.</p>
