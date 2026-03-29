@@ -3,7 +3,7 @@
 ## Data Model
 
 ```ts
-// shared/types.ts (or client/src/lib/types.ts — frontend-only, no server import needed)
+// client/src/lib/types.ts
 
 type DebugActor =
   | 'llm'          // LLM provider (OpenAI / Ollama)
@@ -17,10 +17,12 @@ interface DebugEvent {
   id: string;             // crypto.randomUUID()
   timestamp: Date;        // new Date() at emission point
   actor: DebugActor;
-  type: string;           // e.g. 'request' | 'response' | 'tool-call' | 'tool-result' | 'tool-error' | 'oauth-start' | 'oauth-token' | 'oauth-refresh'
+  type: string;           // e.g. 'step-start' | 'step-finish' | 'tool-decision' | 'tool-call' | 'tool-result' | 'tool-error' | 'oauth-start' | 'oauth-token' | 'oauth-refresh'
   summary: string;        // one-liner, displayed without expansion
   payload?: string;       // JSON.stringify(data, null, 2), capped at 10 240 chars + '[TRUNCATED]'
   correlationId?: string; // optional: ties tool-call event to its tool-result/error (use toolCallId from Vercel AI SDK)
+  step?: number;          // optional: which streamText step this event belongs to (1-indexed)
+  durationMs?: number;    // optional: elapsed time for response/result events
 }
 ```
 
@@ -44,12 +46,21 @@ function toNdjson(events: DebugEvent[]): string {
 
 ## Interfaces
 
+### StreamDebugEvent (shared/types.ts)
+
+```ts
+interface StreamDebugEvent {
+  type: 'debug';
+  event: Omit<DebugEvent, 'timestamp'> & { timestamp: string }; // ISO string for JSON transport
+}
+```
+
 ### DebugContext (client/src/lib/debug-context.tsx)
 
 ```ts
 // Two separate contexts to prevent over-rendering
 
-const DebugEmitContext = createContext<(event: DebugEvent) => void>(() => {});
+const DebugEmitContext = createContext<{ emit: (event: DebugEvent) => void; clear: () => void }>(…);
 const DebugLogContext  = createContext<DebugEvent[]>([]);
 
 export function DebugProvider({ children }: { children: React.ReactNode }) {
@@ -57,8 +68,9 @@ export function DebugProvider({ children }: { children: React.ReactNode }) {
   const emit = useCallback((event: DebugEvent) => {
     setEvents(prev => [...prev, event]);
   }, []);
+  const clear = useCallback(() => setEvents([]), []);
   return (
-    <DebugEmitContext.Provider value={emit}>
+    <DebugEmitContext.Provider value={{ emit, clear }}>
       <DebugLogContext.Provider value={events}>
         {children}
       </DebugLogContext.Provider>
@@ -70,19 +82,27 @@ export const useDebugEmit = () => useContext(DebugEmitContext);
 export const useDebugLog  = () => useContext(DebugLogContext);
 ```
 
-### emitEvent callback (server/routes/chat.ts)
+### emitDebug helper (server/routes/chat.ts)
 
-The existing `emitEvent` callback signature is extended to accept a structured debug event type. The server serialises this into the Vercel AI SDK data stream using `dataStreamWriter.writeData(...)`.
+The `emitDebug` helper wraps debug events in the `StreamDebugEvent` format and writes to the data stream. The `emitEvent` callback is passed to `getToolsForAiSdk` for tool-level events.
 
 ```ts
-// Extended type (server-side, in shared/types.ts or inline in chat.ts)
-interface StreamDebugEvent {
-  type: 'debug';
-  event: Omit<DebugEvent, 'timestamp'> & { timestamp: string }; // ISO string for JSON transport
+function emitDebug(
+  writer: DataStreamWriter,
+  event: Omit<StreamDebugEvent['event'], 'id' | 'timestamp'>
+) {
+  try {
+    writer.writeData({
+      type: 'debug',
+      event: {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        ...event,
+      },
+    });
+  } catch { /* swallow serialisation errors */ }
 }
 ```
-
-On the frontend, `Chat.tsx` already processes `useChat`'s `data` array. A new `useEffect` on `data` picks up `type === 'debug'` entries, deserialises the timestamp, and calls `emit()`.
 
 ### DebugPanel component (client/src/components/DebugPanel.tsx)
 
@@ -95,26 +115,32 @@ interface DebugPanelProps {
 }
 ```
 
-Internally uses `useDebugLog()` for the event list and `useDebugEmit()` is not needed (panel does not emit).
+Internally uses `useDebugLog()` for the event list and `useDebugEmit()` only for `clear`.
 
-### App layout changes (client/src/App.tsx)
+### DebugToggleHandle component (client/src/components/DebugToggleHandle.tsx)
+
+```ts
+interface DebugToggleHandleProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+```
+
+A small, lightweight tab anchored to the right edge — not a thick bar. Should use a minimal visual treatment (e.g., a short vertical label "Debug" or a small icon). Must not visually dominate or create a thick divider between chat and panel.
+
+### App layout (client/src/App.tsx)
 
 ```tsx
-// New state:
 const [isDebugOpen, setIsDebugOpen] = useState(false);
-const [debugPanelWidth, setDebugPanelWidth] = useState(400);
+const [debugPanelWidth, setDebugPanelWidth] = useState(340);
 
-// Clear log on conversation change:
-const clearDebugLog = /* from DebugProvider via context or passed down */;
-useEffect(() => { clearDebugLog(); }, [activeConversationId]);
-
-// Layout (pseudocode):
 <DebugProvider>
+  <DebugConversationClear conversationId={activeConversationId} />
   <div style={{ display: 'flex', height: '100vh' }}>
-    <Sidebar ... />                          {/* fixed width */}
+    <Sidebar ... />
     <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-      <Chat ... />                           {/* flex: 1 */}
-      <DebugToggleHandle onClick={...} />    {/* thin strip on right of chat column */}
+      <Chat ... />                        {/* flex: 1, min-width: 400px */}
+      <DebugToggleHandle ... />           {/* lightweight tab */}
       {isDebugOpen && (
         <DebugPanel
           width={debugPanelWidth}
@@ -127,50 +153,69 @@ useEffect(() => { clearDebugLog(); }, [activeConversationId]);
 </DebugProvider>
 ```
 
-`DebugProvider` must also expose a `clear()` function. Options:
-- Add `clearDebugLog` to `DebugEmitContext` alongside `emit`
-- Or use a ref-based imperative handle
-
-Simpler: expose `{ emit, clear }` from `DebugEmitContext`.
-
 ---
 
 ## Component Design
 
-### Event flow: server → frontend
+### Event flow: server → frontend (per-step model)
 
 ```
 chat.ts (Express)
-  ├─ before streamText  →  emit LLM request event  →  dataStreamWriter.writeData({ type: 'debug', event: {...} })
-  ├─ getToolsForAiSdk execute wrapper
-  │   ├─ tool-call intent  →  emit mcp-client event
-  │   ├─ callWithAuth(...)
-  │   │   ├─ 401 → OAuth start  →  emit oauth event
-  │   │   └─ token refresh      →  emit oauth event
-  │   ├─ callTool success  →  emit mcp-server event
-  │   └─ callTool error    →  emit error event
-  └─ onFinish callback    →  emit LLM response event
+  ├─ pipeDataStreamToResponse
+  │   ├─ emitDebug: llm/step-start (step=1, model, toolCount, messageCount)
+  │   │
+  │   ├─ streamText({ ..., onStepFinish })
+  │   │   │
+  │   │   ├─ AI SDK calls tool execute():
+  │   │   │   ├─ emitDebug: mcp-client/tool-call (toolName, args, correlationId)
+  │   │   │   │   └─ startTime = Date.now()
+  │   │   │   ├─ callWithAuth(...)
+  │   │   │   │   ├─ 401 → emitDebug: oauth/oauth-start
+  │   │   │   │   └─ token refresh → emitDebug: oauth/oauth-refresh
+  │   │   │   ├─ success → emitDebug: mcp-server/tool-result (correlationId, durationMs)
+  │   │   │   └─ error → emitDebug: error/tool-error (correlationId, durationMs)
+  │   │   │
+  │   │   └─ onStepFinish(stepResult):
+  │   │       ├─ if finishReason === 'tool-calls':
+  │   │       │   └─ emitDebug: llm/tool-decision (toolCalls: [{name, args}])
+  │   │       ├─ emitDebug: llm/step-finish (step, finishReason, usage, durationMs)
+  │   │       └─ if next step:
+  │   │           └─ emitDebug: llm/step-start (step=N+1, ...)
+  │   │
+  │   └─ result.mergeIntoDataStream(writer)
 
 useChat (Chat.tsx)
   └─ data[] updates
       └─ useEffect → filter type==='debug' → deserialise timestamp → emit() into DebugContext
 
 DebugPanel.tsx
-  └─ useDebugLog() → render event list
+  └─ useDebugLog() → group by step → render with separators, indentation, durations
 ```
+
+### Panel toggle
+
+The toggle is a small tab — not a 12px-wide permanent bar. It should be:
+- Visually subtle: small rounded tab or icon that doesn't create a visual wall
+- Position: anchored to the right edge of the chat area
+- Behaviour: click to toggle panel open/closed
 
 ### Resize handle
 
 The `DebugPanel`'s left border acts as a drag handle:
+- **Visible**: 1px border line
+- **Hit target**: 8px wide invisible grab area (positioned with absolute/negative offset)
+- **Hover feedback**: cursor changes to `col-resize`; drag indicator appears (e.g. subtle highlight)
+- **Drag behaviour**: dragging left increases panel width, dragging right decreases it
+- **Clamping**: min 240px, max = viewport width - left sidebar width - 400px (protects chat area)
 
 ```tsx
-// Simplified drag logic
 function onMouseDown(e: React.MouseEvent) {
   const startX = e.clientX;
   const startWidth = width;
+  const maxWidth = window.innerWidth - 280 /* sidebar */ - 400 /* min chat */;
   const onMove = (e: MouseEvent) => {
-    const delta = startX - e.clientX; // dragging left increases width
-    onWidthChange(Math.max(240, Math.min(startWidth + delta, window.innerWidth * 0.8)));
+    const delta = startX - e.clientX;
+    onWidthChange(Math.max(240, Math.min(startWidth + delta, maxWidth)));
   };
   const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   window.addEventListener('mousemove', onMove);
@@ -188,6 +233,31 @@ const isUserScrolledUp = useRef(false);
 // On new event: if !isUserScrolledUp → bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
 ```
 
+### Event rendering
+
+Each event entry has:
+1. **Left border** (3px) coloured by actor
+2. **Timestamp** `[HH:MM:SS.mmm]` in muted text
+3. **Actor label** `[llm]` with actor colour
+4. **Direction indicator** `→` for outgoing, `←` for incoming
+5. **Summary text** with optional duration badge `(1.2s)`
+6. **Click to expand** payload as formatted JSON
+
+Correlated events (tool-result/error matching a tool-call via `correlationId`) are indented under the tool-call entry.
+
+Step separators are rendered before step-start events:
+```
+─── Step 1 ──────────────────────────
+[12:00:01.123] [llm] → Request sent (3 tools)
+[12:00:02.456] [llm] ← Finish: tool-calls (1.3s)
+[12:00:02.458] [llm]   Tools chosen: sipcoffee__list_cocktails
+[12:00:02.460] [mcp] → callTool: list_cocktails
+[12:00:02.890] [mcp]   ← result (430ms)
+─── Step 2 ──────────────────────────
+[12:00:02.895] [llm] → Request sent (tool results included)
+[12:00:04.100] [llm] ← Finish: stop (1.2s)
+```
+
 ### Actor colour mapping (Tailwind hardcoded)
 
 ```ts
@@ -199,7 +269,27 @@ const ACTOR_COLORS: Record<DebugActor, string> = {
   'bridge':     'text-pink-400',
   'error':      'text-red-400',
 };
+
+const ACTOR_BORDER_COLORS: Record<DebugActor, string> = {
+  'llm':        'border-blue-400',
+  'mcp-client': 'border-purple-400',
+  'mcp-server': 'border-green-400',
+  'oauth':      'border-orange-400',
+  'bridge':     'border-pink-400',
+  'error':      'border-red-400',
+};
 ```
+
+### Quick filters
+
+Toggle buttons in the panel header bar, below the title row:
+- `LLM` | `MCP` | `OAuth` | `Errors`
+- All enabled by default
+- `LLM` filters actor `llm`
+- `MCP` filters actors `mcp-client` and `mcp-server`
+- `OAuth` filters actor `oauth`
+- `Errors` filters actor `error`
+- Filters are OR-based: event is shown if its actor matches any enabled filter
 
 ---
 
@@ -213,6 +303,12 @@ const ACTOR_COLORS: Record<DebugActor, string> = {
 | Provider placement | `App` level | Inside `Chat` (rejected — panel must be a sibling to `Chat` in the layout, and `App` needs to call `clear()`) |
 | Out-of-band events | Descoped | Buffer in server memory and replay on next chat request (rejected — high complexity, confusing UX) |
 | MCP event granularity | Logical call/result only | Wire-level JSON-RPC (rejected — SDK Client does not expose transport hooks) |
-| LLM event granularity | One request + one `onFinish` response | Per-chunk events (rejected — conflicts with `mergeIntoDataStream`, limited value) |
+| LLM event granularity | Per-step events via `onStepFinish` | Single request + response pair (rejected — hides multi-step tool loops; the user cannot tell what the LLM decided or which step they're on) |
+| LLM tool decisions | Explicit `tool-decision` event on `finishReason: 'tool-calls'` | Rely on tool-call events only (rejected — doesn't show what the LLM chose, only what was executed) |
+| Duration tracking | `durationMs` field on response/result events | No timing (rejected — developers need to identify slow steps) |
+| Toggle affordance | Lightweight tab anchored to right edge | 12px-wide always-visible bar (rejected — creates ugly visual wall between chat and panel) |
+| Default panel width | 340px | 400px (rejected — too aggressive on typical screens, eats too much chat space) |
+| Max panel width | Viewport - sidebar - 400px (min chat) | 80% of viewport (rejected — doesn't protect chat area from being crushed) |
 | Download format | NDJSON | JSON array (NDJSON chosen for streaming parsability and easy `grep`) |
-| Panel overflow fix | Panel sits inside `main` flex row; `main` gets `overflow: hidden` on the outer div only, panel itself gets its own scroll | Changing `App`'s existing overflow (avoided to prevent regressions) |
+| Event grouping | Visual indentation by correlationId + step separators | Flat list (rejected — related events are hard to follow in a flat stream) |
+| Quick filters | Toggle buttons for LLM/MCP/OAuth/Errors | No filtering (rejected — when debugging a specific layer, irrelevant events add noise) |

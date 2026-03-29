@@ -31,9 +31,19 @@ function StepSeparator({ step }: { step: number }) {
   );
 }
 
+const OUTGOING_TYPES = new Set(["step-start", "tool-call"]);
+const INCOMING_TYPES = new Set(["step-finish", "tool-decision", "tool-result", "tool-error"]);
+
+function getDirectionIndicator(type: string): string {
+  if (OUTGOING_TYPES.has(type)) return "→";
+  if (INCOMING_TYPES.has(type)) return "←";
+  return "";
+}
+
 function EventEntry({ event }: { event: DebugEvent }) {
   const [expanded, setExpanded] = useState(false);
   const colorClass = ACTOR_COLORS[event.actor];
+  const direction = getDirectionIndicator(event.type);
 
   return (
     <div
@@ -47,6 +57,9 @@ function EventEntry({ event }: { event: DebugEvent }) {
         <span className={`shrink-0 font-semibold ${colorClass}`}>
           [{event.actor}]
         </span>
+        {direction && (
+          <span className="text-neutral-400 shrink-0">{direction}</span>
+        )}
         <span className="text-neutral-300 break-all">{event.summary}</span>
       </div>
       {expanded && event.payload && (

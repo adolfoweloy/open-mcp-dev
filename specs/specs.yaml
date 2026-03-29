@@ -68,5 +68,5 @@ specs:
   - id: chat__debug
     domain: chat
     feature: debug
-    description: Right-side toggleable/resizable debug panel showing real-time per-conversation event logs (LLM calls, MCP tool calls, OAuth events, errors) with actor color-coding, expandable payloads, and NDJSON download
-    status: done
+    description: Right-side debug panel with full LLM agentic loop visibility (per-step tracking, tool decisions, durations), correlated event grouping, step separators, directional indicators, quick filters, lightweight toggle tab, and min-chat-width protection
+    status: todo

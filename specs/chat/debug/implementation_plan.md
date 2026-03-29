@@ -159,7 +159,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Add duration badges to event entries. For events with a `durationMs` field,
