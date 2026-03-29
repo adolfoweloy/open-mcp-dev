@@ -100,3 +100,9 @@ specs:
     feature: cancel_chat
     description: Stop button replaces Send during streaming; cancels generation via useChat.stop(), preserves partial response, appends interrupted notice, and restores input
     status: todo
+
+  - id: settings__show_tools
+    domain: settings
+    feature: show_tools
+    description: "Tools" button on connected server rows opens a modal listing all tools and resources from that server, with search/filter and expandable detail panels showing schemas as formatted code
+    status: todo

@@ -112,6 +112,8 @@ Immediately after the handshake response the host pushes two notifications into 
 
 - "Settings" text link fixed at bottom-left of sidebar → opens a slide-over drawer (same UX pattern as ChatGPT/Claude Desktop)
 - Drawer-level and full-page modals rendered via `ReactDOM.createPortal` into `document.body` (follows existing dropdown portal pattern)
+- Modal z-index convention: overlay at `zIndex: 2000`; drawer sits at 1000/1001 — modals must always exceed this
+- When a modal is open above the drawer, the drawer's outside-click (`mousedown`) handler must be suppressed to prevent the drawer from closing under the modal
 
 ## Server Enable/Disable (per-chat)
 

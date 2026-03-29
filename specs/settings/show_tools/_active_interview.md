@@ -1,11 +1,11 @@
-<!-- spec_id: chat__cancel_chat -->
-<!-- domain: chat -->
-<!-- feature: cancel_chat -->
-<!-- spec_dir: specs/chat/cancel_chat -->
+<!-- spec_id: settings__show_tools -->
+<!-- domain: settings -->
+<!-- feature: show_tools -->
+<!-- spec_dir: specs/settings/show_tools -->
 
 ## User Description
 
-When the LLM is streamming content to the chat, I would like to be able to stop the generation as in all AI chats that exist today. The send Button should become a stop button that is clicable so I can cancel the streamming and generation. while it is generating, the text box must keep disabled as it is now, but when I click stop it should stop the generation, there should be a message in the chat saying that the generation was interrupted and the button stop should become "send" again and the input text should become enabled for typing again.
+when I go to settings and I see the servers there, I want to be able to click on the server or an option (another button close to the server) that allows me to see all the tools made available by the server. I want to see the tools and I want them to be expandable. when clicked they should expand and show the tool description, inputSchema, etc. The tools and desscriptions should be presented in a modal and the modal should have a close button. The inputSchema, output definition if it exists, resources linked, these should be formatted as code
 
 ---
 
@@ -172,47 +172,43 @@ Once the user confirms the spec is correct, output `[DONE]` on its own line.
 This signals the system that the interview is complete and will end the session.
 
 
-Assistant: I've reviewed the codebase. The chat uses `useChat` from `@ai-sdk/react`, which already exposes a `stop()` function — this is the hook we'll use to cancel the stream. Now a few questions to pin down the details:
+Assistant: Let me look at the existing settings implementation and an existing spec for reference.Good context. The user description is quite clear. Let me ask a focused first round.
 
 ```
-1 - When the user cancels, what happens to the partial response that was already streamed?
-  a. Keep it in the chat as-is, then append an "interrupted" notice below it
-  b. Discard the partial response entirely; only show the "interrupted" notice
-  c. Other (describe below)
+1 - How should the "view tools" action be triggered on the server row?
+  a. Click anywhere on the server name/row
+  b. A dedicated button (e.g. "Tools" or list icon) next to each server row
+  c. Both (row is clickable, plus an explicit button)
 
-2 - How should the "generation was interrupted" notice appear?
-  a. As a new assistant message in the chat thread (e.g. "⚠ Generation interrupted.")
-  b. As a subtle inline badge/label attached to the partial message
-  c. Other (describe below)
+2 - Where should tool data come from?
+  a. A new backend endpoint that queries the live MCP client for its tools
+  b. Tools already cached/available on the frontend from an existing endpoint
+  c. I don't know — you decide what makes sense
 
-3 - After cancellation, is the input restored with the original text the user typed, or left blank?
-  a. Restored with the original message text so the user can re-send easily
-  b. Left blank
-  c. Other (describe below)
+3 - Should the modal show tools for disconnected servers too (empty state), or only be accessible when the server is connected?
+  a. Only accessible when server is connected (button/row disabled otherwise)
+  b. Always accessible — show an empty state or "server not connected" message if disconnected
 ```
 
-User: 1.a, 2.a, 3.a
+User: 1.b, 2.a, 3.a
 
-Assistant: Good, a couple more to cover edge cases:
+Assistant: Good. A couple more questions to nail down the details:
 
 ```
-4 - If the stream errors out on its own (network drop, server error) before the user clicks Stop,
-    should it behave the same way as a user-initiated cancel?
-  a. Yes — same "Generation interrupted" message and same restore behaviour
-  b. No — show a distinct error message instead
-  c. Other (describe below)
+4 - What should the "view tools" button look like?
+  a. A small icon button (e.g. wrench/list icon) — no text label
+  b. A small text button labelled "Tools" or "View Tools"
+  c. Either — you decide what fits the existing row style
 
-5 - Should the Stop button be visually distinct from the Send button
-    (e.g. red background, different icon) or just relabelled "Stop"?
-  a. Visually distinct — different colour/icon (e.g. red, square stop icon)
-  b. Same style as Send, just relabelled "Stop"
-  c. Other (describe below)
+5 - When a tool is expanded, which fields should be shown?
+  a. Description + inputSchema only (the most useful)
+  b. Description + inputSchema + outputSchema (if present) + annotations (if present)
+  c. Everything the MCP server returns for that tool (all fields, raw)
+  d. Other (describe below)
 
-6 - Any concern about double-clicks or race conditions on the Stop button
-    (e.g. user clicks Stop twice)?
-  a. No special handling needed — one click is enough, just disable after first click
-  b. Debounce / ignore subsequent clicks while cancel is in-flight
-  c. Other (describe below)
+6 - Should there be any search/filter inside the modal (e.g. filter tools by name)?
+  a. Yes — a search input at the top
+  b. No — just scroll through the list
 ```
 
-User: 4.b, 5.b, 6.b
+User: [B[B[B[B[B[B4.b, 5.b (don´t forget to also bring resources, not only tools), 6.a
