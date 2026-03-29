@@ -118,4 +118,4 @@ tasks:
       - specs/bugs/chat-autoscroll-override/requirements.md
       - specs/bugs/chat-autoscroll-override/research.md
     priority: high
-    status: todo
+    status: done
