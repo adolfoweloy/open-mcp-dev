@@ -191,7 +191,7 @@ tasks:
       - specs/chat/debug/design.md
       - specs/chat/debug/requirements.md
     priority: medium
-    status: todo
+    status: done
 
   - task: >
       Add quick filter toggles to the DebugPanel header. Add a row of small toggle

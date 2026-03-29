@@ -54,7 +54,7 @@ function formatDuration(ms: number): string {
   return `(${ms}ms)`;
 }
 
-function EventEntry({ event }: { event: DebugEvent }) {
+function EventEntry({ event, isCorrelated }: { event: DebugEvent; isCorrelated?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const colorClass = ACTOR_COLORS[event.actor];
   const borderClass = ACTOR_BORDER_COLORS[event.actor];
@@ -62,7 +62,7 @@ function EventEntry({ event }: { event: DebugEvent }) {
 
   return (
     <div
-      className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2 cursor-pointer hover:bg-neutral-800/50`}
+      className={`border-b border-neutral-800 border-l-[3px] ${borderClass} py-1 pl-2 cursor-pointer hover:bg-neutral-800/50${isCorrelated ? " ml-4" : ""}`}
       onClick={() => setExpanded((v) => !v)}
     >
       <div className="flex items-start gap-1 font-mono text-[11px]">
@@ -206,16 +206,30 @@ export function DebugPanel({ width, onClose, onWidthChange }: DebugPanelProps) {
       >
         {events.length === 0 ? (
           <p className="text-[11px] text-neutral-600 py-4 text-center">No events yet.</p>
-        ) : (
-          events.map((event) => (
-            <Fragment key={event.id}>
-              {event.type === "step-start" && (
-                <StepSeparator step={event.step ?? 1} />
-              )}
-              <EventEntry event={event} />
-            </Fragment>
-          ))
-        )}
+        ) : (() => {
+          // Build set of correlationIds seen in tool-call events so we can indent correlated responses
+          const toolCallCorrelationIds = new Set<string>();
+          for (const event of events) {
+            if (event.type === "tool-call" && event.correlationId) {
+              toolCallCorrelationIds.add(event.correlationId);
+            }
+          }
+
+          return events.map((event) => {
+            const isCorrelated =
+              !!event.correlationId &&
+              event.type !== "tool-call" &&
+              toolCallCorrelationIds.has(event.correlationId);
+            return (
+              <Fragment key={event.id}>
+                {event.type === "step-start" && (
+                  <StepSeparator step={event.step ?? 1} />
+                )}
+                <EventEntry event={event} isCorrelated={isCorrelated} />
+              </Fragment>
+            );
+          });
+        })()}
         <div ref={bottomRef} />
       </div>
     </div>
